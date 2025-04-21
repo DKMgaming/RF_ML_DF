@@ -82,7 +82,7 @@ with tab1:
                     "lon_rx": lon_rx,
                     "frequency": freq,
                     "signal_strength": signal,
-                    "distance_km": distance,
+                    "distance_km": distance,  # Đảm bảo tính toán distance_km
                     "azimuth": azimuth  # Tính toán azimuth ở đây
                 })
 
@@ -100,6 +100,9 @@ with tab1:
             # Tính toán azimuth từ lat_tx, lon_tx, lat_rx, lon_rx
             df['azimuth'] = df.apply(lambda row: calculate_azimuth(row['lat_tx'], row['lon_tx'], row['lat_rx'], row['lon_rx']), axis=1)
 
+            # Tính toán distance_km từ lat_tx, lon_tx, lat_rx, lon_rx
+            df['distance_km'] = df.apply(lambda row: sqrt((row['lat_tx'] - row['lat_rx'])**2 + (row['lon_tx'] - row['lon_rx'])**2) * 111, axis=1)
+
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
 
@@ -108,7 +111,7 @@ with tab1:
         df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
 
         X = df[['lat_tx', 'lon_tx', 'lat_rx', 'lon_rx', 'frequency', 'azimuth_sin', 'azimuth_cos']]
-        y = df[['distance_km']]
+        y = df[['distance_km']]  # Đảm bảo cột distance_km có mặt
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -183,19 +186,4 @@ with tab2:
                 h_rx = st.number_input("Chiều cao anten (m)", value=30.0)
                 signal = st.number_input("Mức tín hiệu thu (dBm)", value=-80.0)
                 freq = st.number_input("Tần số (MHz)", value=900.0)
-                azimuth = st.number_input("Góc phương vị (độ)", value=45.0)
-                submitted = st.form_submit_button("🔍 Dự đoán tọa độ nguồn phát")
-
-            if submitted:
-                az_sin = np.sin(np.radians(azimuth))
-                az_cos = np.cos(np.radians(azimuth))
-                X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
-                predicted_distance = model.predict(X_input)[0]
-                predicted_distance = max(predicted_distance, 0.1)
-
-                lat_pred, lon_pred = predict_coordinates(lat_rx, lon_rx, azimuth, predicted_distance)
-
-                st.success("🎯 Tọa độ nguồn phát xạ dự đoán:")
-                st.markdown(f"- **Vĩ độ**: `{lat_pred:.6f}`")
-                st.markdown(f"- **Kinh độ**: `{lon_pred:.6f}`")
-                st.markdown(f"- **Khoảng cách dự đoán**: `{predicted_distance:.2f} km`")
+                azimuth = st.number_input("Góc phương vị (đ
