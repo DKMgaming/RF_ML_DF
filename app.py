@@ -2,14 +2,11 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
-from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import joblib
 from io import BytesIO
 from math import atan2, degrees, radians, sin, cos, sqrt
-import folium
-from streamlit_folium import st_folium
 
 # --- Hàm phụ ---
 def calculate_azimuth(lat1, lon1, lat2, lon2):
@@ -50,7 +47,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # Tabs chính
 tab1, tab2 = st.tabs(["1. Huấn luyện mô hình", "2. Dự đoán tọa độ"])
 
@@ -86,16 +82,24 @@ with tab1:
                     "lon_rx": lon_rx,
                     "frequency": freq,
                     "signal_strength": signal,
-                    "distance_km": distance
+                    "distance_km": distance,
+                    "azimuth": azimuth  # Tính toán azimuth ở đây
                 })
 
             df = pd.DataFrame(data)
+            st.success("Dữ liệu mô phỏng đã được tạo thành công!")
+            st.dataframe(df.head())
+
     else:
         uploaded_data = st.file_uploader("📂 Tải file Excel dữ liệu thực tế", type=["xlsx"])
         if uploaded_data:
             df = pd.read_excel(uploaded_data)
             st.success("Đã tải dữ liệu thực tế.")
             st.dataframe(df.head())
+
+            # Tính toán azimuth từ lat_tx, lon_tx, lat_rx, lon_rx
+            df['azimuth'] = df.apply(lambda row: calculate_azimuth(row['lat_tx'], row['lon_tx'], row['lat_rx'], row['lon_rx']), axis=1)
+
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
 
@@ -152,21 +156,16 @@ with tab2:
         if uploaded_excel:
             df_input = pd.read_excel(uploaded_excel)
             results = []
-            m = folium.Map(location=[df_input['lat_rx'].mean(), df_input['lon_rx'].mean()], zoom_start=8)
 
             for _, row in df_input.iterrows():
-                az_sin = np.sin(np.radians(row['azimuth']))
-                az_cos = np.cos(np.radians(row['azimuth']))
+                azimuth = calculate_azimuth(row['lat_tx'], row['lon_tx'], row['lat_rx'], row['lon_rx'])
+                az_sin = np.sin(np.radians(azimuth))
+                az_cos = np.cos(np.radians(azimuth))
                 X_input = np.array([[row['lat_rx'], row['lon_rx'], row['antenna_height'], row['signal_strength'], row['frequency'], az_sin, az_cos]])
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
 
-                lat_pred, lon_pred = predict_coordinates(row['lat_rx'], row['lon_rx'], row['azimuth'], predicted_distance)
-
-                folium.Marker([row['lat_rx'], row['lon_rx']], tooltip="Trạm thu", icon=folium.Icon(color='blue')).add_to(m)
-                folium.Marker([lat_pred, lon_pred], tooltip="Nguồn phát dự đoán", icon=folium.Icon(color='red')).add_to(m)
-                folium.PolyLine(locations=[[row['lat_rx'], row['lon_rx']], [lat_pred, lon_pred]], color='green').add_to(m)
-
+                lat_pred, lon_pred = predict_coordinates(row['lat_rx'], row['lon_rx'], azimuth, predicted_distance)
                 results.append({
                     "lat_rx": row['lat_rx'],
                     "lon_rx": row['lon_rx'],
@@ -176,7 +175,6 @@ with tab2:
                 })
 
             st.dataframe(pd.DataFrame(results))
-            st_folium(m, width=800, height=500)
 
         else:
             with st.form("input_form"):
@@ -201,10 +199,3 @@ with tab2:
                 st.markdown(f"- **Vĩ độ**: `{lat_pred:.6f}`")
                 st.markdown(f"- **Kinh độ**: `{lon_pred:.6f}`")
                 st.markdown(f"- **Khoảng cách dự đoán**: `{predicted_distance:.2f} km`")
-
-                m = folium.Map(location=[lat_rx, lon_rx], zoom_start=10)
-                folium.Marker([lat_rx, lon_rx], tooltip="Trạm thu", icon=folium.Icon(color='blue')).add_to(m)
-                folium.Marker([lat_pred, lon_pred], tooltip="Nguồn phát dự đoán", icon=folium.Icon(color='red')).add_to(m)
-                folium.PolyLine(locations=[[lat_rx, lon_rx], [lat_pred, lon_pred]], color='green').add_to(m)
-
-                st_folium(m, width=800, height=500)
