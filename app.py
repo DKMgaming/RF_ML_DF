@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
-from sklearn.multioutput import MultiOutputRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import joblib
@@ -50,7 +49,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # Tabs chính
 tab1, tab2 = st.tabs(["1. Huấn luyện mô hình", "2. Dự đoán tọa độ"])
 
@@ -93,8 +91,26 @@ with tab1:
     else:
         uploaded_data = st.file_uploader("📂 Tải file Excel dữ liệu thực tế", type=["xlsx"])
         if uploaded_data:
-            df = pd.read_excel(uploaded_data)
-            st.success("Đã tải dữ liệu thực tế.")
+            df_raw = pd.read_excel(uploaded_data)
+
+            # Gán chiều cao anten mặc định (nếu không có cột này)
+            df_raw["antenna_height"] = 30.0
+
+            # Tính azimuth từ RX đến TX
+            df_raw["azimuth"] = df_raw.apply(lambda row: calculate_azimuth(row["lat_rx"], row["lon_rx"], row["lat_tx"], row["lon_tx"]), axis=1)
+
+            # Tính khoảng cách giữa TX và RX
+            df_raw["distance_km"] = df_raw.apply(lambda row: sqrt((row["lat_tx"] - row["lat_rx"])**2 + (row["lon_tx"] - row["lon_rx"])**2) * 111, axis=1)
+
+            # Tính công suất tín hiệu giả lập
+            df_raw["signal_strength"] = df_raw.apply(lambda row: simulate_signal_strength(row["distance_km"], row["antenna_height"], row["freq"]), axis=1)
+
+            # Chuẩn hóa tên cột
+            df_raw.rename(columns={"freq": "frequency"}, inplace=True)
+
+            df = df_raw.copy()
+
+            st.success("✅ Dữ liệu đã được xử lý và sẵn sàng huấn luyện.")
             st.dataframe(df.head())
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
@@ -128,13 +144,11 @@ with tab1:
 
     with st.expander("📄 Tải file Excel mẫu để huấn luyện"):
         sample_data = pd.DataFrame({
-            "lat_receiver": [16.0],
-            "lon_receiver": [108.0],
-            "antenna_height": [30.0],
-            "azimuth": [45.0],
-            "frequency": [900.0],
-            "signal_strength": [-80.0],
-            "distance_km": [10.0]
+            "lat_tx": [16.01],
+            "lon_tx": [108.01],
+            "lat_rx": [16.0],
+            "lon_rx": [108.0],
+            "freq": [900.0]
         })
         towrite = BytesIO()
         sample_data.to_excel(towrite, index=False, engine='openpyxl')
@@ -193,21 +207,4 @@ with tab2:
             if submitted:
                 az_sin = np.sin(np.radians(azimuth))
                 az_cos = np.cos(np.radians(azimuth))
-                X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
-                predicted_distance = model.predict(X_input)[0]
-                predicted_distance = max(predicted_distance, 0.1)
-
-                lat_pred, lon_pred = predict_coordinates(lat_rx, lon_rx, azimuth, predicted_distance)
-
-                st.success("🎯 Tọa độ nguồn phát xạ dự đoán:")
-                st.markdown(f"- **Vĩ độ**: `{lat_pred:.6f}`")
-                st.markdown(f"- **Kinh độ**: `{lon_pred:.6f}`")
-                st.markdown(f"- **Khoảng cách dự đoán**: `{predicted_distance:.2f} km`")
-
-                m = folium.Map(location=[lat_rx, lon_rx], zoom_start=10)
-                folium.Marker([lat_rx, lon_rx], tooltip="Trạm thu", icon=folium.Icon(color='blue')).add_to(m)
-                folium.Marker([lat_pred, lon_pred], tooltip="Nguồn phát dự đoán", icon=folium.Icon(color='red')).add_to(m)
-                folium.PolyLine(locations=[[lat_rx, lon_rx], [lat_pred, lon_pred]], color='green').add_to(m)
-
-                with st.container():
-                    st_folium(m, width=700, height=500, returned_objects=[])
+                X_input = np.array([[lat_rx, lon
