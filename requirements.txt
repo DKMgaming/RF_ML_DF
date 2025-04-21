@@ -1,0 +1,9 @@
+streamlit
+numpy
+pandas
+xgboost
+scikit-learn
+joblib
+folium
+streamlit-folium
+openpyxl  # 👈 Thêm dòng này
