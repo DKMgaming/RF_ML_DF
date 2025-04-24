@@ -3,7 +3,8 @@ numpy
 pandas
 xgboost
 scikit-learn
+openpyxl
 joblib
 folium
 streamlit-folium
-openpyxl  # 👈 Thêm dòng này
+tensorflow
