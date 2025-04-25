@@ -1,16 +1,1 @@
-streamlit
-numpy
-pandas
-xgboost
-scikit-learn
-openpyxl
-joblib
-folium
-streamlit-folium
-tensorflow
-scikeras
---upgrade scikeras
---upgrade tensorflow
-
-
 
