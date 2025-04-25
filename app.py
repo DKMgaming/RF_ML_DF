@@ -138,8 +138,7 @@ with tab1:
                 ('rf', RandomForestRegressor(n_estimators=100, random_state=42)),
                 ('nn', nn_reg)
             ]
-            #suawwwwwwwwwwwwwwww
-            y = y.ravel()
+            
             stacking_model = StackingRegressor(
                 estimators=estimators,
                 final_estimator=LinearRegression()
