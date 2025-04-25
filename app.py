@@ -240,7 +240,7 @@ with tab2:
     if st.session_state.file_results is not None:
         st.dataframe(st.session_state.file_results)
     if st.session_state.file_map is not None:
-        st_folium(st.session_state.file_map, width=800, height=500)
+        st_folium(st.session_state.file_map, width=1300, height=500)
 
     # ===============================================================
     # ⌨️  DỰ ĐOÁN NHẬP TAY (FORM)
