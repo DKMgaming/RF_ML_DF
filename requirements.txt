@@ -9,4 +9,6 @@ folium
 streamlit-folium
 tensorflow
 scikeras
+streamlit-folium
+geopy
 
