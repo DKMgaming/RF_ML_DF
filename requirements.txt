@@ -9,4 +9,6 @@ tensorflow
 numpy
 openpyxl
 scikeras
-tensorflow
+subprocess
+sys
+scikeras[tensorflow]
