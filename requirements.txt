@@ -9,4 +9,4 @@ folium
 streamlit-folium
 tensorflow
 scikeras
-matplotlib
+
