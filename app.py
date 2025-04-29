@@ -281,5 +281,5 @@ with tab2:
                 f"**Kinh độ**: `{lon_pred:.6f}`  "
                 f"**Khoảng cách**: `{dist:.2f} km`")
     if st.session_state.single_map is not None:
-        st_folium(st.session_state.single_map, width=1300, height=500)
+        st_folium(st.session_state.single_map, width=800, height=500)
 
