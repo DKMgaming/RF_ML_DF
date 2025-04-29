@@ -14,6 +14,7 @@ from streamlit_folium import st_folium
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from scikeras.wrappers import KerasRegressor
+from streamlit_folium import st_folium
 
 # ---------- Hàm build NN dùng cho cả train & predict ----------
 def build_model():
@@ -165,7 +166,8 @@ with tab1:
             st.error("Đã xảy ra lỗi khi huấn luyện.")
             st.exception(e)
 
-# ---------- Tab 2 ----------
+
+# Tab 2
 with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
 
@@ -281,4 +283,4 @@ with tab2:
                 f"**Kinh độ**: {lon_pred:.6f}  "
                 f"**Khoảng cách**: {dist:.2f} km")
     if st.session_state.single_map is not None:
-        st_folium(st.session_state.single_map, width=800, height=500) 
+        st_folium(st.session_state.single_map, width=800, height=500)
