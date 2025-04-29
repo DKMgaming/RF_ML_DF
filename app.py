@@ -14,9 +14,7 @@ from streamlit_folium import st_folium
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from scikeras.wrappers import KerasRegressor
-import subprocess
-import sys
-subprocess.check_call([sys.executable, "-m", "pip", "install", "scikeras[tensorflow]"])
+
 # ---------- Hàm build NN dùng cho cả train & predict ----------
 def build_model():
     """Trả về mô hình Keras 2 hidden‑layer; input_shape cố định = 7 feature."""
@@ -53,8 +51,119 @@ def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
 st.set_page_config(layout="wide")
 st.title("🔭 Dự đoán tọa độ nguồn phát xạ theo hướng định vị")
 
-tab2 = st.tabs(["2. Dự đoán tọa độ"])
+tab1, tab2 = st.tabs(["1. Huấn luyện mô hình", "2. Dự đoán tọa độ"])
 
+# ---------- Tab 1 ----------
+with tab1:
+    st.subheader("📡 Huấn luyện mô hình với dữ liệu mô phỏng hoặc thực tế")
+
+    option = st.radio("Chọn nguồn dữ liệu huấn luyện:",
+                      ("Sinh dữ liệu mô phỏng", "Tải file Excel dữ liệu thực tế"))
+    df = None
+
+    # --- Sinh dữ liệu mô phỏng ---
+    if option == "Sinh dữ liệu mô phỏng":
+        if st.button("Huấn luyện mô hình từ dữ liệu mô phỏng"):
+            st.info("Đang sinh dữ liệu mô phỏng...")
+            np.random.seed(42)
+            n_samples = 1000
+            data = []
+            for _ in range(n_samples):
+                lat_tx = np.random.uniform(10.0, 21.0)
+                lon_tx = np.random.uniform(105.0, 109.0)
+                lat_rx = lat_tx + np.random.uniform(-0.05, 0.05)
+                lon_rx = lon_tx + np.random.uniform(-0.05, 0.05)
+                h_rx = np.random.uniform(5, 50)
+                freq = np.random.uniform(400, 2600)
+
+                az = calculate_azimuth(lat_rx, lon_rx, lat_tx, lon_tx)
+                dist = sqrt((lat_tx - lat_rx)**2 + (lon_tx - lon_rx)**2) * 111
+                signal = simulate_signal_strength(dist, h_rx, freq)
+
+                data.append({
+                    "lat_receiver": lat_rx,
+                    "lon_receiver": lon_rx,
+                    "antenna_height": h_rx,
+                    "azimuth": az,
+                    "frequency": freq,
+                    "signal_strength": signal,
+                    "distance_km": dist
+                })
+            df = pd.DataFrame(data)
+            st.success("Đã sinh dữ liệu mô phỏng!")
+            st.dataframe(df.head())
+
+            towrite = BytesIO()
+            df.to_excel(towrite, index=False, engine='openpyxl')
+            towrite.seek(0)
+            st.download_button("📥 Tải dữ liệu mô phỏng (.xlsx)",
+                               data=towrite,
+                               file_name="simulation_data.xlsx",
+                               mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # --- Tải file thực tế ---
+    else:
+        uploaded_data = st.file_uploader("📂 Tải file Excel dữ liệu thực tế", type=["xlsx"])
+        if uploaded_data:
+            df = pd.read_excel(uploaded_data)
+            st.success("Đã tải dữ liệu.")
+            st.dataframe(df.head())
+        else:
+            st.info("Vui lòng tải file dữ liệu để huấn luyện.")
+
+    # ---------- Huấn luyện ----------
+    if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
+        try:
+            st.info("Đang huấn luyện mô hình...")
+
+            # Tiền xử lý
+            df['azimuth_sin'] = np.sin(np.radians(df['azimuth']))
+            df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
+
+            X = df[['lat_receiver', 'lon_receiver', 'antenna_height',
+                    'signal_strength', 'frequency', 'azimuth_sin', 'azimuth_cos']]
+            y = df[['distance_km']]
+
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=0.2, random_state=42)
+
+            nn_reg = KerasRegressor(model=build_model,
+                                    epochs=50,
+                                    batch_size=32,
+                                    verbose=0)
+
+            estimators = [
+                ('xgb', XGBRegressor(n_estimators=100, random_state=42)),
+                ('rf', RandomForestRegressor(n_estimators=100, random_state=42)),
+                ('nn', nn_reg)
+            ]
+
+            stacking_model = StackingRegressor(
+                estimators=estimators,
+                final_estimator=LinearRegression()
+            )
+
+            stacking_model.fit(X_train, y_train)
+
+            # Đánh giá
+            y_pred = stacking_model.predict(X_test)
+            mae = mean_absolute_error(y_test, y_pred)
+            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+            r2 = r2_score(y_test, y_pred)
+
+            st.success(f"MAE: {mae:.3f} km")
+            st.success(f"RMSE: {rmse:.3f} km")
+            st.success(f"R²: {r2:.3f}")
+
+            buffer = BytesIO()
+            joblib.dump(stacking_model, buffer)
+            buffer.seek(0)
+            st.download_button("📥 Tải mô hình (.joblib)",
+                               data=buffer,
+                               file_name="stacking_model.joblib",
+                               mime="application/octet-stream")
+        except Exception as e:
+            st.error("Đã xảy ra lỗi khi huấn luyện.")
+            st.exception(e)
 
 # ---------- Tab 2 ----------
 with tab2:
@@ -129,7 +238,7 @@ with tab2:
     if st.session_state.file_results is not None:
         st.dataframe(st.session_state.file_results)
     if st.session_state.file_map is not None:
-        st_folium(st.session_state.file_map, width=1300, height=500)
+        st_folium(st.session_state.file_map, width=800, height=500)
 
     # ===============================================================
     # ⌨️  DỰ ĐOÁN NHẬP TAY (FORM)
@@ -158,7 +267,7 @@ with tab2:
         folium.Marker([lat_rx, lon_rx], tooltip="Trạm thu",
                       icon=folium.Icon(color='blue')).add_to(m2)
         folium.Marker([lat_pred, lon_pred],
-                      tooltip=(f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBm\nKhoảng cách: {pred_dist} km"),
+                      tooltip=(f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBm"),
                       icon=folium.Icon(color='red')).add_to(m2)
         folium.PolyLine([[lat_rx, lon_rx], [lat_pred, lon_pred]],
                         color='green').add_to(m2)
