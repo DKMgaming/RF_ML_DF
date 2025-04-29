@@ -125,7 +125,7 @@ if st.button("🔍 Chạy dự đoán file Excel") and uploaded_excel and upload
 if st.session_state.file_results is not None:
     st.dataframe(st.session_state.file_results)
 if st.session_state.file_map is not None:
-    st_folium(st.session_state.file_map, width=800, height=500)
+    st_folium(st.session_state.file_map, width=1300, height=500)
 
 # ===============================================================
 # ⌨️  DỰ ĐOÁN NHẬP TAY (FORM)
@@ -168,4 +168,4 @@ if st.session_state.single_result is not None:
             f"**Kinh độ**: {lon_pred:.6f}  "
             f"**Khoảng cách**: {dist:.2f} km")
 if st.session_state.single_map is not None:
-    st_folium(st.session_state.single_map, width=800, height=500)
+    st_folium(st.session_state.single_map, width=1300, height=500)
