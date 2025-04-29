@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import folium
 from streamlit_folium import st_folium
-from sklearn.externals import joblib
+import joblib  # Thay vì từ sklearn.externals
 
 # Tải mô hình đã huấn luyện
 model = joblib.load('model_trained.pkl')
