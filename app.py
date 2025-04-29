@@ -188,24 +188,27 @@ with tab2:
         azimuth = st.number_input("Góc phương vị (°):", min_value=0.0, max_value=360.0, value=30.0)
         frequency = st.number_input("Tần số (MHz):", min_value=100.0, max_value=5000.0, value=1500.0)
 
-        if st.button("🔮 Dự đoán"):
-            try:
-                azimuth_sin = np.sin(np.radians(azimuth))
-                azimuth_cos = np.cos(np.radians(azimuth))
+    if st.button("🔮 Dự đoán"):
+    try:
+        # Tính toán giá trị sin và cos của azimuth
+        azimuth_sin = np.sin(np.radians(azimuth))
+        azimuth_cos = np.cos(np.radians(azimuth))
 
-                input_data = np.array([[lat_receiver, lon_receiver, h_receiver, frequency, azimuth_sin, azimuth_cos]])
-                distance_pred = model.predict(input_data)[0]
-                st.write(f"Dự đoán khoảng cách đến nguồn phát: {distance_pred:.2f} km")
+        # Đảm bảo cung cấp đủ 7 đặc trưng (bao gồm cả azimuth_sin và azimuth_cos)
+        input_data = np.array([[lat_receiver, lon_receiver, h_receiver, frequency, azimuth_sin, azimuth_cos]])
+        
+        # Dự đoán khoảng cách bằng mô hình đã huấn luyện
+        distance_pred = model.predict(input_data)[0]
+        st.write(f"Dự đoán khoảng cách đến nguồn phát: {distance_pred:.2f} km")
 
-                # Tính tọa độ nguồn phát xạ
-                lat_tx, lon_tx = calculate_destination(
-                    lat_receiver, lon_receiver, azimuth, distance_pred)
-                st.write(f"Tọa độ nguồn phát xạ dự đoán: (Lat: {lat_tx:.4f}, Lon: {lon_tx:.4f})")
+        # Tính tọa độ nguồn phát xạ
+        lat_tx, lon_tx = calculate_destination(lat_receiver, lon_receiver, azimuth, distance_pred)
+        st.write(f"Tọa độ nguồn phát xạ dự đoán: (Lat: {lat_tx:.4f}, Lon: {lon_tx:.4f})")
 
-                # Vẽ bản đồ
-                m = folium.Map(location=[lat_receiver, lon_receiver], zoom_start=12)
-                folium.Marker([lat_receiver, lon_receiver], popup="Trạm thu", icon=folium.Icon(color="blue")).add_to(m)
-                folium.Marker([lat_tx, lon_tx], popup="Nguồn phát xạ", icon=folium.Icon(color="red")).add_to(m)
-                st_folium(m, width=700, height=500)
-            except Exception as e:
-                st.error(f"Đã xảy ra lỗi: {e}")
+        # Vẽ bản đồ
+        m = folium.Map(location=[lat_receiver, lon_receiver], zoom_start=12)
+        folium.Marker([lat_receiver, lon_receiver], popup="Trạm thu", icon=folium.Icon(color="blue")).add_to(m)
+        folium.Marker([lat_tx, lon_tx], popup="Nguồn phát xạ", icon=folium.Icon(color="red")).add_to(m)
+        st_folium(m, width=700, height=500)
+    except Exception as e:
+        st.error(f"Đã xảy ra lỗi: {e}")
