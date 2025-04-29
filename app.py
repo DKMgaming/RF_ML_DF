@@ -81,7 +81,10 @@ if st.button("🔍 Chạy dự đoán file Excel") and uploaded_excel and upload
     results = []
     map_center = [df_input['lat_receiver'].mean(),
                   df_input['lon_receiver'].mean()]
-    m = folium.Map(location=map_center, zoom_start=8)
+
+    # Kiểm tra nếu bản đồ đã được tạo sẵn trong session_state
+    if st.session_state.file_map is None:
+        st.session_state.file_map = folium.Map(location=map_center, zoom_start=8)
 
     for _, row in df_input.iterrows():
         az_sin = np.sin(np.radians(row['azimuth']))
@@ -97,12 +100,12 @@ if st.button("🔍 Chạy dự đoán file Excel") and uploaded_excel and upload
         folium.Marker([lat_pred, lon_pred],
                       tooltip=(f"Nguồn phát dự đoán\nTần số: {row['frequency']} MHz"
                                f"\nMức tín hiệu: {row['signal_strength']} dBm"),
-                      icon=folium.Icon(color='red')).add_to(m)
+                      icon=folium.Icon(color='red')).add_to(st.session_state.file_map)
         folium.Marker([row['lat_receiver'], row['lon_receiver']],
                       tooltip="Trạm thu",
-                      icon=folium.Icon(color='blue')).add_to(m)
+                      icon=folium.Icon(color='blue')).add_to(st.session_state.file_map)
         folium.PolyLine([[row['lat_receiver'], row['lon_receiver']],
-                         [lat_pred, lon_pred]], color='green').add_to(m)
+                         [lat_pred, lon_pred]], color='green').add_to(st.session_state.file_map)
 
         results.append({
             "lat_receiver": row['lat_receiver'],
@@ -114,9 +117,8 @@ if st.button("🔍 Chạy dự đoán file Excel") and uploaded_excel and upload
             "signal_strength": row['signal_strength']
         })
 
-    # Lưu vào session_state
+    # Lưu kết quả vào session_state
     st.session_state.file_results = pd.DataFrame(results)
-    st.session_state.file_map = m
     st.success("✅ Hoàn tất dự đoán file Excel!")
 
 # Hiển thị (nếu đã có)
