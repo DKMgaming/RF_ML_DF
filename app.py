@@ -269,7 +269,7 @@ with tab2:
         folium.Marker([lat_rx, lon_rx], tooltip="Trạm thu",
                       icon=folium.Icon(color='blue')).add_to(m2)
         folium.Marker([lat_pred, lon_pred],
-                      tooltip=(f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBm\nKhoảng cách: {pred_dist} km"),
+                      tooltip=(f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBm\nKhoảng cách: {pred_dist.2f} km"),
                       icon=folium.Icon(color='red')).add_to(m2)
         folium.PolyLine([[lat_rx, lon_rx], [lat_pred, lon_pred]],
                         color='green').add_to(m2)
