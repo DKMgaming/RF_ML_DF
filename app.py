@@ -2,19 +2,36 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import time # Có thể dùng để kiểm tra thời gian load, debug nếu cần
+import importlib # Dùng để kiểm tra import thư viện
 
-# Import các thư viện ML/DL. Bắt lỗi nếu thiếu.
+# ---------- Import các thư viện ML/DL. Bắt lỗi nếu thiếu. ----------
 try:
-    from xgboost import XGBRegressor
-    from sklearn.ensemble import RandomForestRegressor, StackingRegressor
-    # from sklearn.linear_model import LinearRegression # Nếu cần dùng cho stacking
     import joblib
-    print("Successfully imported ML/DL and joblib.")
+    print("Successfully imported joblib.")
+
+    # Import các thư viện ML cụ thể (XGBoost, Sklearn Ensembles)
+    # Sử dụng try-except riêng cho từng module nếu muốn thông báo chi tiết hơn
+    try:
+        from xgboost import XGBRegressor
+        print("Successfully imported XGBoost.")
+    except ImportError:
+        st.warning("Thư viện XGBoost không tìm thấy.")
+        XGBRegressor = None # Gán None để tránh lỗi khi tham chiếu sau này
+
+    try:
+        from sklearn.ensemble import RandomForestRegressor, StackingRegressor
+        # from sklearn.linear_model import LinearRegression # Nếu cần dùng cho stacking
+        print("Successfully imported Scikit-learn Ensembles.")
+    except ImportError:
+         st.warning("Thư viện Scikit-learn (RandomForestRegressor, StackingRegressor) không tìm thấy.")
+         RandomForestRegressor = None
+         StackingRegressor = None
+         # LinearRegression = None
 
     # Import thư viện cho Keras/TensorFlow VÀ Scikeras.
+    KERAS_AVAILABLE = False
     try:
         # Kiểm tra cài đặt trước khi import
-        import importlib
         importlib.import_module('tensorflow')
         importlib.import_module('keras')
         importlib.import_module('scikeras')
@@ -24,17 +41,16 @@ try:
         print("Successfully imported TensorFlow/Keras and Scikeras.")
         KERAS_AVAILABLE = True
     except ImportError:
-        print("TensorFlow/Keras hoặc Scikeras không tìm thấy. build_model có thể không hoạt động.")
-        KERAS_AVAILABLE = False
-        # Nếu KERAS_AVAILABLE là False, đảm bảo các lớp/hàm liên quan không gây lỗi
+        print("TensorFlow/Keras hoặc Scikeras không tìm thấy. build_model có thể không hoạt động nếu mô hình là KerasRegressor.")
+        # Gán None cho các lớp Keras để tránh lỗi NameError nếu KERAS_AVAILABLE là False
         Sequential = None
         Dense = None
         KerasRegressor = None
 
-
 except ImportError as e:
-    st.error(f"Lỗi: Không tìm thấy thư viện cần thiết. Vui lòng cài đặt chúng. Chi tiết: {e}")
+    st.error(f"Lỗi: Không tìm thấy một hoặc nhiều thư viện cốt lõi (joblib, numpy, pandas, folium, streamlit_folium, sklearn, xgboost, tensorflow, keras, scikeras). Vui lòng cài đặt chúng. Chi tiết: {e}")
     st.stop() # Dừng ứng dụng nếu các thư viện cốt lõi bị thiếu
+
 
 from io import BytesIO
 from math import atan2, degrees, radians, sin, cos, sqrt
@@ -56,9 +72,8 @@ EARTH_RADIUS_KM = 6371.0
 def build_model():
     """Trả về mô hình Keras 2 hidden‑layer; input_shape cố định = 7 feature."""
     if not KERAS_AVAILABLE:
-        # Trường hợp này chỉ xảy ra nếu build_model được gọi MÀ KERAS_AVAILABLE là False.
         st.error("Lỗi nội bộ: Hàm build_model được gọi nhưng TensorFlow/Keras không sẵn sàng. Vui lòng kiểm tra cài đặt.")
-        return None
+        return None # Trả về None nếu Keras không sẵn sàng
 
     # Định nghĩa cấu trúc mô hình Keras
     model = Sequential([
@@ -110,20 +125,29 @@ def predict_location_from_inputs(model, lat_rx, lon_rx, h_rx, signal, freq, azim
 
     try:
         # Streamlit có thể chạy lại nhanh, thêm 1 chút sleep nhỏ có thể giúp ổn định UI
-        # Nhưng thường không cần thiết nếu quản lý state tốt.
-        # time.sleep(0.05)
+        # Nhưng thường không cần thiết nếu quản lý state tốt và không có lỗi ẩn.
+        # time.sleep(0.05) # Có thể thử bỏ comment dòng này để xem có giảm flicker không,
+                           # nhưng không phải là giải pháp gốc rễ.
         pred_dist_raw = model.predict(X_input)[0]
         pred_dist = max(pred_dist_raw, 0.01) # Khoảng cách tối thiểu 10m
     except Exception as e:
-        st.error(f"Lỗi trong quá trình dự đoán khoảng cách bằng mô hình: {e}")
-        if "'build_model'" in str(e) or "keras" in str(e).lower() or "scikeras" in str(e).lower() or "optimizer" in str(e).lower():
-             st.warning("Gợi ý: Lỗi này có thể do mô hình Keras/Scikeras không tương thích hoặc thư viện chưa sẵn sàng.")
+        st.error(f"❌ Lỗi trong quá trình dự đoán khoảng cách bằng mô hình: {e}")
+        # Gợi ý thêm về lỗi liên quan đến Keras nếu có
+        if KERAS_AVAILABLE and ("'build_model'" in str(e) or "keras" in str(e).lower() or "scikeras" in str(e).lower() or "optimizer" in str(e).lower()):
+             st.warning("Gợi ý: Lỗi này có thể do mô hình KerasRegressor không tương thích hoặc lỗi trong hàm build_model.")
+        elif "'build_model'" in str(e):
+             # Lỗi build_model mà KERAS_AVAILABLE là False -> nghĩa là joblib đang cố
+             # load KerasRegressor nhưng không có TF/Keras/Scikeras
+             st.warning("Gợi ý: Mô hình của bạn có vẻ là KerasRegressor nhưng các thư viện TensorFlow, Keras, Scikeras chưa được cài đặt hoặc nạp thành công.")
+        # Gợi ý về lỗi phiên bản
+        if "InconsistentVersionWarning" in str(e) or "older version of XGBoost" in str(e):
+             st.warning("Gợi ý: Lỗi này có thể do phiên bản thư viện dùng để train và load mô hình khác nhau. Vui lòng kiểm tra `requirements.txt`.")
         return None, None, None
 
     try:
         lat_pred, lon_pred = calculate_destination(lat_rx, lon_rx, azimuth, pred_dist)
     except Exception as e:
-        st.error(f"Lỗi trong quá trình tính toán tọa độ đích: {e}")
+        st.error(f"❌ Lỗi trong quá trình tính toán tọa độ đích: {e}")
         return None, None, None
 
     return lat_pred, lon_pred, pred_dist
@@ -142,6 +166,8 @@ for key in ("model", "current_model_info", "file_results", "file_map", "single_r
 st.sidebar.header("Tải mô hình")
 st.sidebar.info("Mô hình (.joblib) phải được huấn luyện trên 7 đặc trưng theo thứ tự: Lat Receiver, Lon Receiver, Antenna Height, Signal Strength, Frequency, Azimuth Sin, Azimuth Cos.")
 st.sidebar.warning("Nếu mô hình là KerasRegressor được lưu bằng joblib, bạn cần đảm bảo TensorFlow, Keras, Scikeras đã cài đặt và hàm `build_model` có trong script này.")
+st.sidebar.error("🚨 **CẢNH BÁO QUAN TRỌNG:** Log file cho thấy lỗi về phiên bản thư viện (scikit-learn, XGBoost) giữa lúc train và lúc load mô hình. Điều này LÀ NGUYÊN NHÂN chính gây ra các hành vi không ổn định (bao gồm cả nhấp nháy bản đồ). Vui lòng đảm bảo các phiên bản thư viện trong `requirements.txt` của bạn khớp với phiên bản dùng để train mô hình!")
+
 
 uploaded_model = st.sidebar.file_uploader(
     "📂 Tải file mô hình (.joblib)",
@@ -151,19 +177,18 @@ uploaded_model = st.sidebar.file_uploader(
 # ----------- LOGIC TẢI VÀ QUẢN LÝ MÔ HÌNH TỐI ƯU HÓA -------------
 if uploaded_model is not None:
     # Lấy thông tin của file vừa upload
-    # Sử dụng read() để đảm bảo Streamlit giữ file trong bộ nhớ và ta có thể lấy size
-    # uploaded_model.seek(0) # Reset con trỏ về đầu file nếu cần đọc nội dung
+    # Sử dụng seek(0) để đảm bảo có thể đọc lại file nếu cần (joblib.load có thể đọc nhiều lần)
+    uploaded_model.seek(0)
     uploaded_model_info = (uploaded_model.name, uploaded_model.size)
 
     # Lấy thông tin của file mô hình đang được lưu trong session state
-    current_model_info = st.session_state.get("current_model_info") # Dùng .get để tránh lỗi nếu key chưa tồn tại
+    current_model_info = st.session_state.get("current_model_info")
 
     # So sánh file vừa upload với file đang được lưu trong session state
     # Nếu chưa có mô hình trong state HOẶC file vừa upload khác với file đang load:
     if st.session_state.model is None or current_model_info != uploaded_model_info:
         try:
             with st.spinner(f"Đang nạp mô hình ({uploaded_model_info[0]})..."):
-                # Đối với KerasRegressor qua joblib, hàm build_model phải có sẵn tại đây
                 # Đảm bảo con trỏ file ở đầu trước khi load
                 uploaded_model.seek(0)
                 loaded_model = joblib.load(uploaded_model)
@@ -184,15 +209,23 @@ if uploaded_model is not None:
         except Exception as e:
             # Nếu load thất bại:
             st.sidebar.error(f"❌ Lỗi khi nạp mô hình. Vui lòng kiểm tra file. Chi tiết: {e}")
+            # Báo lỗi cụ thể hơn nếu là lỗi build_model (do KerasRegressor và thiếu thư viện)
+            if "'build_model'" in str(e) and not KERAS_AVAILABLE:
+                 st.sidebar.warning("Lỗi nạp mô hình: File có vẻ là KerasRegressor nhưng TensorFlow/Keras/Scikeras không được cài đặt hoặc nạp thành công. Vui lòng kiểm tra `requirements.txt`.")
+            elif "'build_model'" in str(e) and KERAS_AVAILABLE:
+                 st.sidebar.warning("Lỗi nạp mô hình: File có vẻ là KerasRegressor nhưng có lỗi xảy ra khi gọi hàm `build_model`. Vui lòng kiểm tra hàm `build_model` trong script.")
+            # Gợi ý lỗi phiên bản
+            if "InconsistentVersionWarning" in str(e) or "older version of XGBoost" in str(e):
+                st.sidebar.warning("Lỗi nạp mô hình: Phiên bản thư viện không khớp. Vui lòng kiểm tra `requirements.txt`.")
+
             st.session_state.model = None # Clear model state
             st.session_state.current_model_info = None # Clear file info state
-            # Tùy chọn: Có thể giữ lại kết quả cũ nếu load mô hình mới bị lỗi,
-            # hoặc xóa để tránh nhầm lẫn. Hiện tại đang xóa.
+            # Xóa kết quả cũ để tránh hiển thị kết quả từ mô hình cũ không còn hoạt động
             st.session_state.file_results = None
             st.session_state.file_map = None
             st.session_state.single_result = None
             st.session_state.single_map = None
-            st.sidebar.warning("Kết quả cũ có thể không còn hợp lệ do lỗi nạp mô hình mới.")
+            st.sidebar.warning("Kết quả cũ đã bị xóa do lỗi nạp mô hình mới.")
 
     # Nếu file vừa upload giống với file đang load, không làm gì cả (không load lại, không reset)
     else:
@@ -247,14 +280,15 @@ if predict_file_button:
                     st.error(f"❌ File Excel thiếu các cột bắt buộc: {', '.join(missing)}")
                     st.session_state.file_results = None # Reset kết quả cũ
                     st.session_state.file_map = None # Reset bản đồ cũ
+                elif df_input.empty:
+                     st.warning("⚠️ File Excel trống hoặc không chứa dữ liệu hợp lệ.")
+                     st.session_state.file_results = None
+                     st.session_state.file_map = None
                 else:
                     results = []
                     # Tính toán trung tâm bản đồ từ các điểm trạm thu
-                    if not df_input.empty:
-                        map_center = [df_input['lat_receiver'].mean(),
-                                      df_input['lon_receiver'].mean()]
-                    else:
-                        map_center = [0, 0] # Default center if dataframe is empty
+                    map_center = [df_input['lat_receiver'].mean(),
+                                  df_input['lon_receiver'].mean()]
 
                     # Khởi tạo bản đồ MỚI cho mỗi lần chạy file
                     st.session_state.file_map = folium.Map(location=map_center, zoom_start=8)
@@ -263,10 +297,9 @@ if predict_file_button:
                     # Sử dụng tqdm nếu muốn hiển thị progress bar trong console khi debug
                     # for index, row in tqdm(df_input.iterrows(), total=len(df_input), desc="Processing rows"):
                     for index, row in df_input.iterrows():
-                        # Kiểm tra dữ liệu cơ bản trong dòng
-                        if pd.isna(row[['lat_receiver', 'lon_receiver', 'antenna_height',
-                                         'signal_strength', 'frequency', 'azimuth']]).any():
-                            st.warning(f"⚠️ Bỏ qua dòng {index + 1} trong file Excel do thiếu dữ liệu.")
+                        # Kiểm tra dữ liệu cơ bản trong dòng (kiểm tra NaN sau khi đọc)
+                        if pd.isna(row[required_cols]).any():
+                            st.warning(f"⚠️ Bỏ qua dòng {index + 1} trong file Excel do thiếu dữ liệu ở các cột bắt buộc.")
                             continue # Bỏ qua dòng này
 
                         # Sử dụng hàm predict_location_from_inputs chung
@@ -310,7 +343,7 @@ if predict_file_button:
                         st.session_state.file_results = pd.DataFrame(results)
                         st.success(f"✅ Hoàn tất dự đoán từ file Excel! Đã xử lý {processed_count} dòng.")
                     else:
-                         st.warning("⚠️ Không có dòng nào trong file Excel được xử lý thành công.")
+                         st.warning("⚠️ Không có dòng nào trong file Excel được xử lý thành công. Vui lòng kiểm tra dữ liệu đầu vào.")
                          st.session_state.file_results = None
                          st.session_state.file_map = None
 
@@ -336,15 +369,24 @@ if st.session_state.file_results is not None:
     st.markdown("#### Kết quả dự đoán từ file")
     st.dataframe(st.session_state.file_results)
 
-# Đảm bảo bản đồ file chỉ hiển thị nếu session state có map và có kết quả
+# Đảm bảo bản đồ file chỉ hiển thị nếu session state có map và có kết quả (để đồng bộ)
 if st.session_state.file_map is not None and st.session_state.file_results is not None:
     st.markdown("#### Bản đồ kết quả từ file")
     # --- SỬA LỖI NHẤP NHÁY: Dùng id() của đối tượng map làm một phần của key ---
-    map_key = f"file_map_display_{id(st.session_state.file_map)}"
-    st_folium(st.session_state.file_map, width=1300, height=500, key=map_key)
+    # Tạo key duy nhất dựa trên ID của đối tượng bản đồ Folium. ID này chỉ thay đổi
+    # khi một đối tượng bản đồ mới được tạo ra (tức là sau khi nhấn nút dự đoán mới).
+    # Điều này giúp Streamlit nhận ra rằng nó đang hiển thị cùng một bản đồ,
+    # giúp component st_folium ổn định hơn qua các lần rerun.
+    try:
+         map_key = f"file_map_display_{id(st.session_state.file_map)}"
+         st_folium(st.session_state.file_map, width=1300, height=500, key=map_key)
+    except Exception as e:
+         st.error(f"❌ Lỗi hiển thị bản đồ file: {e}")
+         st.session_state.file_map = None # Xóa bản đồ lỗi khỏi state
     # ------------------------------------------------------------------------
 elif st.session_state.file_map is not None and st.session_state.file_results is None:
      # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi xử lý file sau khi load model)
+     # Có thể chọn hiển thị bản đồ trống hoặc ẩn đi. Chọn ẩn đi cho gọn.
      pass
 
 
@@ -362,10 +404,10 @@ with st.form("input_form", clear_on_submit=False):
     with col1:
         lat_rx = st.number_input("Vĩ độ trạm thu (°)", value=16.0, format="%.6f", help="Ví dụ: 16.0479")
         lon_rx = st.number_input("Kinh độ trạm thu (°)", value=108.0, format="%.6f", help="Ví dụ: 108.2209")
-        azimuth = st.number_input("Góc phương vị (độ)", value=45.0, min_value=0.0, max_value=360.0, format="%.2f", help="Góc từ trạm thu đến nguồn phát, tính từ hướng Bắc theo chiều kim đồng hồ (0-360°)")
+        azimuth = st.number_input("Góc phương vị (độ)", value=45.0, min_value=0.0, max_value=360.0, format="%.2f", help="Góc từ trạm thu đến nguồn phát, tính từ hướng Bắc theo chiều kim đồng hồ (0-300°)") # Sửa help text cho đúng range
     with col2:
         h_rx = st.number_input("Chiều cao anten (m)", value=30.0, min_value=0.0, format="%.2f", help="Chiều cao anten so với mặt đất")
-        signal = st.number_input("Mức tín hiệu thu (dBm)", value=-80.0, format="%.2f", help="Cường độ tín hiệu đo được tại trạm thu")
+        signal = st.number_input("Mức tín hiệu thu (dBm)", value=-80.0, format="%.2f", help="Cường độ tín hiệu đo được tại trạm thu (thường là giá trị âm)") # Thêm gợi ý giá trị âm
         freq = st.number_input("Tần số (MHz)", value=900.0, min_value=1.0, format="%.2f", help="Tần số hoạt động của nguồn phát")
 
     submitted = st.form_submit_button(
@@ -383,8 +425,8 @@ if submitted:
             st.error("❌ Lỗi: Vĩ độ phải nằm trong khoảng [-90, 90] và Kinh độ phải nằm trong khoảng [-180, 180].")
             st.session_state.single_result = None # Xóa kết quả cũ nếu nhập sai
             st.session_state.single_map = None
-        elif h_rx < 0 or signal > 0 or freq <= 0 or not (0 <= azimuth <= 360):
-             st.error("❌ Lỗi: Vui lòng kiểm tra lại các giá trị nhập (chiều cao >= 0, tín hiệu <= 0, tần số > 0, phương vị 0-360).")
+        elif h_rx < 0 or signal > 0 or freq <= 0 or not (0 <= azimuth <= 360): # Signal có thể >0 trong lý thuyết, nhưng thực tế RF thường âm
+             st.error("❌ Lỗi: Vui lòng kiểm tra lại các giá trị nhập (chiều cao >= 0, tần số > 0, phương vị 0-360).")
              st.session_state.single_result = None # Xóa kết quả cũ nếu nhập sai
              st.session_state.single_map = None
         else:
@@ -433,8 +475,13 @@ if st.session_state.single_result is not None:
 if st.session_state.single_map is not None and st.session_state.single_result is not None:
     st.markdown("#### Bản đồ kết quả nhập tay")
     # --- SỬA LỖI NHẤP NHÁY: Dùng id() của đối tượng map làm một phần của key ---
-    map_key = f"single_map_display_{id(st.session_state.single_map)}"
-    st_folium(st.session_state.single_map, width=1300, height=500, key=map_key)
+    # Tạo key duy nhất dựa trên ID của đối tượng bản đồ Folium.
+    try:
+         map_key = f"single_map_display_{id(st.session_state.single_map)}"
+         st_folium(st.session_state.single_map, width=1300, height=500, key=map_key)
+    except Exception as e:
+         st.error(f"❌ Lỗi hiển thị bản đồ nhập tay: {e}")
+         st.session_state.single_map = None # Xóa bản đồ lỗi khỏi state
     # ------------------------------------------------------------------------
 elif st.session_state.single_map is not None and st.session_state.single_result is None:
      # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi nhập sai sau khi có kết quả)
@@ -442,4 +489,4 @@ elif st.session_state.single_map is not None and st.session_state.single_result 
 
 
 st.markdown("---")
-st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.4 (Map Flicker Fix)")
+st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.5 (Add Version Warning & Minor Fixes)")
