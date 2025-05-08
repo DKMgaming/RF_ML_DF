@@ -11,7 +11,6 @@ try:
     print("Successfully imported ML/DL and joblib.")
 
     # Import thư viện cho Keras/TensorFlow VÀ Scikeras.
-    # Các thư viện này cần thiết nếu mô hình joblib được tạo từ Scikeras.KerasRegressor.
     try:
         from tensorflow.keras.models import Sequential
         from tensorflow.keras.layers import Dense
@@ -19,7 +18,7 @@ try:
         print("Successfully imported TensorFlow/Keras and Scikeras.")
         KERAS_AVAILABLE = True
     except ImportError:
-        print("TensorFlow/Keras hoặc Scikeras không tìm thấy. build_model sẽ không hoạt động.")
+        print("TensorFlow/Keras hoặc Scikeras không tìm thấy. build_model có thể không hoạt động.")
         KERAS_AVAILABLE = False
 
 except ImportError as e:
@@ -40,17 +39,12 @@ EARTH_RADIUS_KM = 6371.0
 # Nếu mô hình của bạn là XGBoost, RF, StackingRegressor... được lưu bằng joblib,
 # thì hàm này không cần thiết cho quá trình *load* mô hình đó, nhưng cần tồn tại
 # nếu file joblib được tạo từ KerasRegressor.
-# Cách tốt nhất để load Keras là dùng model.save()/.h5 và tf.keras.models.load_model().
-# Tuy nhiên, để sửa lỗi hiện tại, ta cứ đảm bảo hàm này tồn tại VÀ có thể được gọi
-# (tức là TF/Keras/Scikeras phải được cài đặt).
+# Cách tốt nhất để load Keras là dùng model.save() và tf.keras.models.load_model().
+# Tuy nhiên, để sửa lỗi hiện tại, ta cứ đảm bảo hàm này tồn tại VÀ có thể được gọi.
 
 def build_model():
     """Trả về mô hình Keras 2 hidden‑layer; input_shape cố định = 7 feature."""
     if not KERAS_AVAILABLE:
-        # Trường hợp này chỉ xảy ra nếu build_model được gọi MÀ KERAS_AVAILABLE là False.
-        # Joblib gọi hàm này, nên lỗi ban đầu "Can't get attribute" xảy ra khi hàm
-        # chưa được định nghĩa hoặc bị lỗi import.
-        # Nếu import thành công, KERAS_AVAILABLE là True, code này sẽ không chạy.
         st.error("Lỗi nội bộ: Hàm build_model được gọi nhưng TensorFlow/Keras không sẵn sàng.")
         return None
 
@@ -65,7 +59,7 @@ def build_model():
     return model
 
 # ---------- Hàm phụ tính toán địa lý/RF ----------
-# (Giữ nguyên như phiên bản tối ưu)
+# (Giữ nguyên)
 def calculate_azimuth(lat1, lon1, lat2, lon2):
     """Tính góc phương vị từ điểm 1 đến điểm 2 (độ)."""
     d_lon = radians(lon2 - lon1)
@@ -92,10 +86,10 @@ def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
     return degrees(lat2), degrees(lon2)
 
 # ---------- Hàm xử lý dự đoán chung ----------
+# (Giữ nguyên)
 def predict_location_from_inputs(model, lat_rx, lon_rx, h_rx, signal, freq, azimuth):
     """Nhận các thông số đầu vào và trả về tọa độ nguồn phát dự đoán và khoảng cách."""
     if model is None:
-        # Lỗi này không xảy ra nếu nút predict bị disabled đúng cách
         st.error("Lỗi: Mô hình chưa được nạp.")
         return None, None, None
 
@@ -108,7 +102,6 @@ def predict_location_from_inputs(model, lat_rx, lon_rx, h_rx, signal, freq, azim
         pred_dist = max(pred_dist_raw, 0.01) # Khoảng cách tối thiểu 10m
     except Exception as e:
         st.error(f"Lỗi trong quá trình dự đoán khoảng cách bằng mô hình: {e}")
-        # Thêm gợi ý nếu lỗi liên quan đến cấu trúc mô hình
         if "'build_model'" in str(e) or "keras" in str(e).lower() or "scikeras" in str(e).lower():
             st.warning("Gợi ý: Lỗi này có thể do mô hình Keras/Scikeras không tương thích hoặc thư viện chưa sẵn sàng.")
         return None, None, None
@@ -126,9 +119,10 @@ st.set_page_config(layout="wide", page_title="Dự đoán Vị trí Nguồn Phá
 st.title("🔭 Dự đoán tọa độ nguồn phát xạ theo hướng định vị")
 
 # ---------- 2. Khởi tạo biến lưu trong session_state (chỉ 1 lần) ----------
-for key in ("model", "file_results", "file_map", "single_result", "single_map"):
+# Thêm biến để lưu thông tin file mô hình đã load
+for key in ("model", "current_model_info", "file_results", "file_map", "single_result", "single_map"):
     if key not in st.session_state:
-        st.session_state[key] = None
+        st.session_state[key] = None # current_model_info sẽ là tuple (name, size) hoặc None
 
 # ---- 1. Tải mô hình đã huấn luyện ----
 st.sidebar.header("Tải mô hình")
@@ -140,38 +134,58 @@ uploaded_model = st.sidebar.file_uploader(
     type=["joblib"],
     key="model_file_uploader")
 
-# Logic tải mô hình: Chỉ tải khi file mới được upload và khác với file đã tải trước đó
-# Sử dụng object ID hoặc hash của uploaded_model để kiểm tra
+# ----------- LOGIC TẢI VÀ QUẢN LÝ MÔ HÌNH TỐI ƯU HÓA -------------
 if uploaded_model is not None:
-    # Kiểm tra xem đã có model trong session state chưa hoặc file upload có khác file trước không
-    # uploaded_model là một BytesIO-like object, có thể so sánh getvalue() hoặc sử dụng hash
-    # Cách đơn giản là kiểm tra sự tồn tại của session state key cho file ID
-    if "uploaded_model_id" not in st.session_state or st.session_state.uploaded_model_id != id(uploaded_model):
-         # Lưu ID file mới để so sánh lần sau
-        st.session_state.uploaded_model_id = id(uploaded_model)
+    # Lấy thông tin của file vừa upload
+    uploaded_model_info = (uploaded_model.name, uploaded_model.size)
 
+    # Lấy thông tin của file mô hình đang được lưu trong session state
+    current_model_info = st.session_state.get("current_model_info") # Dùng .get để tránh lỗi nếu key chưa tồn tại
+
+    # So sánh file vừa upload với file đang được lưu trong session state
+    # Nếu chưa có mô hình trong state HOẶC file vừa upload khác với file đang load:
+    if st.session_state.model is None or current_model_info != uploaded_model_info:
         try:
-            with st.spinner("Đang nạp mô hình..."):
+            with st.spinner(f"Đang nạp mô hình ({uploaded_model_info[0]})..."):
                 # Đối với KerasRegressor qua joblib, hàm build_model phải có sẵn tại đây
-                st.session_state.model = joblib.load(uploaded_model)
-            st.sidebar.success(f"✅ Đã nạp mô hình thành công: {type(st.session_state.model).__name__}.")
-            # Reset kết quả cũ khi load mô hình mới
+                loaded_model = joblib.load(uploaded_model)
+
+            # Nếu load thành công:
+            st.session_state.model = loaded_model
+            st.session_state.current_model_info = uploaded_model_info # Lưu thông tin file đã load thành công
+            st.sidebar.success(f"✅ Đã nạp mô hình thành công: {type(st.session_state.model).__name__} ({uploaded_model_info[0]}).")
+
+            # --- CHỈ RESET KẾT QUẢ CŨ KHI MỘT FILE MÔ HÌNH MỚI KHÁC ĐƯỢC LOAD THÀNH CÔNG ---
             st.session_state.file_results = None
             st.session_state.file_map = None
             st.session_state.single_result = None
             st.session_state.single_map = None
+            st.sidebar.info("Đã xóa kết quả dự đoán cũ do tải mô hình mới.")
+            # -------------------------------------------------------------------------
 
         except Exception as e:
+            # Nếu load thất bại:
             st.sidebar.error(f"❌ Lỗi khi nạp mô hình. Vui lòng kiểm tra file. Chi tiết: {e}")
-            st.session_state.model = None # Đảm bảo session state model là None nếu load lỗi
-            # Xóa ID file để cho phép tải lại cùng file sau khi sửa lỗi
-            if "uploaded_model_id" in st.session_state:
-                 del st.session_state.uploaded_model_id
+            st.session_state.model = None # Clear model state
+            st.session_state.current_model_info = None # Clear file info state
+            # Tùy chọn: Có thể giữ lại kết quả cũ nếu load mô hình mới bị lỗi,
+            # hoặc xóa để tránh nhầm lẫn. Hiện tại đang xóa.
+            st.session_state.file_results = None
+            st.session_state.file_map = None
+            st.session_state.single_result = None
+            st.session_state.single_map = None
+            st.sidebar.warning("Kết quả cũ có thể không còn hợp lệ do lỗi nạp mô hình mới.")
 
+    # Nếu file vừa upload giống với file đang load, không làm gì cả (không load lại, không reset)
+    else:
+        # print("File mô hình đã được load và đang ở trong session state.")
+        pass # Đã có mô hình đúng trong state, không cần làm gì thêm
 
 # Hiển thị trạng thái mô hình
-if st.session_state.model is not None:
-    st.sidebar.info(f"🌟 Mô hình đã sẵn sàng: {type(st.session_state.model).__name__}")
+if st.session_state.model is not None and st.session_state.get("current_model_info"):
+     model_type = type(st.session_state.model).__name__
+     model_name = st.session_state.current_model_info[0]
+     st.sidebar.info(f"🌟 Mô hình đã sẵn sàng: {model_type} ({model_name})")
 else:
     st.sidebar.warning("⚠️ Chưa có mô hình được nạp hoặc nạp bị lỗi.")
 
@@ -225,10 +239,6 @@ if predict_file_button:
                     # Khởi tạo bản đồ MỚI cho mỗi lần chạy file
                     st.session_state.file_map = folium.Map(location=map_center, zoom_start=8)
 
-                    # Sử dụng iterrows() là chuẩn nhưng kém hiệu quả với DF lớn.
-                    # Apply hoặc list comprehension có thể nhanh hơn với DF lớn.
-                    # Tuy nhiên, với việc vẽ marker/line trên map, iterrows() dễ quản lý.
-                    # Nếu dataset rất lớn, cần cân nhắc tối ưu vòng lặp này và cách vẽ map.
                     processed_count = 0
                     for index, row in df_input.iterrows():
                         # Kiểm tra dữ liệu cơ bản trong dòng
@@ -304,10 +314,14 @@ if st.session_state.file_results is not None:
     st.markdown("#### Kết quả dự đoán từ file")
     st.dataframe(st.session_state.file_results)
 
-if st.session_state.file_map is not None:
+# Đảm bảo bản đồ file chỉ hiển thị nếu session state có map và có kết quả
+if st.session_state.file_map is not None and st.session_state.file_results is not None:
     st.markdown("#### Bản đồ kết quả từ file")
-    # Render bản đồ đã lưu trong session state
     st_folium(st.session_state.file_map, width=1300, height=500, key="file_map_display")
+elif st.session_state.file_map is not None and st.session_state.file_results is None:
+     # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi xử lý file sau khi load model)
+     # Có thể chọn hiển thị bản đồ trống hoặc ẩn đi. Chọn ẩn đi cho gọn.
+     pass
 
 
 # ===============================================================
@@ -343,11 +357,11 @@ if submitted:
         # Thực hiện validation cơ bản cho nhập tay
         if not (-90 <= lat_rx <= 90) or not (-180 <= lon_rx <= 180):
             st.error("❌ Lỗi: Vĩ độ phải nằm trong khoảng [-90, 90] và Kinh độ phải nằm trong khoảng [-180, 180].")
-            st.session_state.single_result = None
+            st.session_state.single_result = None # Xóa kết quả cũ nếu nhập sai
             st.session_state.single_map = None
         elif h_rx < 0 or signal > 0 or freq <= 0 or not (0 <= azimuth <= 360):
              st.error("❌ Lỗi: Vui lòng kiểm tra lại các giá trị nhập (chiều cao >= 0, tín hiệu <= 0, tần số > 0, phương vị 0-360).")
-             st.session_state.single_result = None
+             st.session_state.single_result = None # Xóa kết quả cũ nếu nhập sai
              st.session_state.single_map = None
         else:
             with st.spinner("Đang dự đoán..."):
@@ -391,10 +405,14 @@ if st.session_state.single_result is not None:
             f"**Kinh độ Nguồn**: {lon_pred:.6f}°  |  "
             f"**Khoảng cách (Dự đoán)**: {dist:.2f} km")
 
-if st.session_state.single_map is not None:
+# Đảm bảo bản đồ nhập tay chỉ hiển thị nếu session state có map và có kết quả
+if st.session_state.single_map is not None and st.session_state.single_result is not None:
     st.markdown("#### Bản đồ kết quả nhập tay")
-    # Render bản đồ đã lưu trong session state
     st_folium(st.session_state.single_map, width=1300, height=500, key="single_map_display")
+elif st.session_state.single_map is not None and st.session_state.single_result is None:
+     # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi nhập sai sau khi có kết quả)
+     pass
+
 
 st.markdown("---")
-st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.2 (Debug)")
+st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.3 (State Management Fix)")
