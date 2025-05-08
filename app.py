@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import time # Có thể dùng để kiểm tra thời gian load, debug nếu cần
 
 # Import các thư viện ML/DL. Bắt lỗi nếu thiếu.
 try:
@@ -12,6 +13,11 @@ try:
 
     # Import thư viện cho Keras/TensorFlow VÀ Scikeras.
     try:
+        # Kiểm tra cài đặt trước khi import
+        import importlib
+        importlib.import_module('tensorflow')
+        importlib.import_module('keras')
+        importlib.import_module('scikeras')
         from tensorflow.keras.models import Sequential
         from tensorflow.keras.layers import Dense
         from scikeras.wrappers import KerasRegressor
@@ -20,6 +26,11 @@ try:
     except ImportError:
         print("TensorFlow/Keras hoặc Scikeras không tìm thấy. build_model có thể không hoạt động.")
         KERAS_AVAILABLE = False
+        # Nếu KERAS_AVAILABLE là False, đảm bảo các lớp/hàm liên quan không gây lỗi
+        Sequential = None
+        Dense = None
+        KerasRegressor = None
+
 
 except ImportError as e:
     st.error(f"Lỗi: Không tìm thấy thư viện cần thiết. Vui lòng cài đặt chúng. Chi tiết: {e}")
@@ -45,7 +56,8 @@ EARTH_RADIUS_KM = 6371.0
 def build_model():
     """Trả về mô hình Keras 2 hidden‑layer; input_shape cố định = 7 feature."""
     if not KERAS_AVAILABLE:
-        st.error("Lỗi nội bộ: Hàm build_model được gọi nhưng TensorFlow/Keras không sẵn sàng.")
+        # Trường hợp này chỉ xảy ra nếu build_model được gọi MÀ KERAS_AVAILABLE là False.
+        st.error("Lỗi nội bộ: Hàm build_model được gọi nhưng TensorFlow/Keras không sẵn sàng. Vui lòng kiểm tra cài đặt.")
         return None
 
     # Định nghĩa cấu trúc mô hình Keras
@@ -86,7 +98,6 @@ def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
     return degrees(lat2), degrees(lon2)
 
 # ---------- Hàm xử lý dự đoán chung ----------
-# (Giữ nguyên)
 def predict_location_from_inputs(model, lat_rx, lon_rx, h_rx, signal, freq, azimuth):
     """Nhận các thông số đầu vào và trả về tọa độ nguồn phát dự đoán và khoảng cách."""
     if model is None:
@@ -98,12 +109,15 @@ def predict_location_from_inputs(model, lat_rx, lon_rx, h_rx, signal, freq, azim
     X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
 
     try:
+        # Streamlit có thể chạy lại nhanh, thêm 1 chút sleep nhỏ có thể giúp ổn định UI
+        # Nhưng thường không cần thiết nếu quản lý state tốt.
+        # time.sleep(0.05)
         pred_dist_raw = model.predict(X_input)[0]
         pred_dist = max(pred_dist_raw, 0.01) # Khoảng cách tối thiểu 10m
     except Exception as e:
         st.error(f"Lỗi trong quá trình dự đoán khoảng cách bằng mô hình: {e}")
-        if "'build_model'" in str(e) or "keras" in str(e).lower() or "scikeras" in str(e).lower():
-            st.warning("Gợi ý: Lỗi này có thể do mô hình Keras/Scikeras không tương thích hoặc thư viện chưa sẵn sàng.")
+        if "'build_model'" in str(e) or "keras" in str(e).lower() or "scikeras" in str(e).lower() or "optimizer" in str(e).lower():
+             st.warning("Gợi ý: Lỗi này có thể do mô hình Keras/Scikeras không tương thích hoặc thư viện chưa sẵn sàng.")
         return None, None, None
 
     try:
@@ -137,6 +151,8 @@ uploaded_model = st.sidebar.file_uploader(
 # ----------- LOGIC TẢI VÀ QUẢN LÝ MÔ HÌNH TỐI ƯU HÓA -------------
 if uploaded_model is not None:
     # Lấy thông tin của file vừa upload
+    # Sử dụng read() để đảm bảo Streamlit giữ file trong bộ nhớ và ta có thể lấy size
+    # uploaded_model.seek(0) # Reset con trỏ về đầu file nếu cần đọc nội dung
     uploaded_model_info = (uploaded_model.name, uploaded_model.size)
 
     # Lấy thông tin của file mô hình đang được lưu trong session state
@@ -148,6 +164,8 @@ if uploaded_model is not None:
         try:
             with st.spinner(f"Đang nạp mô hình ({uploaded_model_info[0]})..."):
                 # Đối với KerasRegressor qua joblib, hàm build_model phải có sẵn tại đây
+                # Đảm bảo con trỏ file ở đầu trước khi load
+                uploaded_model.seek(0)
                 loaded_model = joblib.load(uploaded_model)
 
             # Nếu load thành công:
@@ -217,6 +235,8 @@ if predict_file_button:
     else:
         try:
             with st.spinner("Đang xử lý file Excel và dự đoán..."):
+                # Đảm bảo con trỏ file ở đầu trước khi đọc
+                uploaded_excel.seek(0)
                 df_input = pd.read_excel(uploaded_excel)
 
                 # Kiểm tra các cột bắt buộc
@@ -240,6 +260,8 @@ if predict_file_button:
                     st.session_state.file_map = folium.Map(location=map_center, zoom_start=8)
 
                     processed_count = 0
+                    # Sử dụng tqdm nếu muốn hiển thị progress bar trong console khi debug
+                    # for index, row in tqdm(df_input.iterrows(), total=len(df_input), desc="Processing rows"):
                     for index, row in df_input.iterrows():
                         # Kiểm tra dữ liệu cơ bản trong dòng
                         if pd.isna(row[['lat_receiver', 'lon_receiver', 'antenna_height',
@@ -317,10 +339,12 @@ if st.session_state.file_results is not None:
 # Đảm bảo bản đồ file chỉ hiển thị nếu session state có map và có kết quả
 if st.session_state.file_map is not None and st.session_state.file_results is not None:
     st.markdown("#### Bản đồ kết quả từ file")
-    st_folium(st.session_state.file_map, width=1300, height=500, key="file_map_display")
+    # --- SỬA LỖI NHẤP NHÁY: Dùng id() của đối tượng map làm một phần của key ---
+    map_key = f"file_map_display_{id(st.session_state.file_map)}"
+    st_folium(st.session_state.file_map, width=1300, height=500, key=map_key)
+    # ------------------------------------------------------------------------
 elif st.session_state.file_map is not None and st.session_state.file_results is None:
      # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi xử lý file sau khi load model)
-     # Có thể chọn hiển thị bản đồ trống hoặc ẩn đi. Chọn ẩn đi cho gọn.
      pass
 
 
@@ -408,11 +432,14 @@ if st.session_state.single_result is not None:
 # Đảm bảo bản đồ nhập tay chỉ hiển thị nếu session state có map và có kết quả
 if st.session_state.single_map is not None and st.session_state.single_result is not None:
     st.markdown("#### Bản đồ kết quả nhập tay")
-    st_folium(st.session_state.single_map, width=1300, height=500, key="single_map_display")
+    # --- SỬA LỖI NHẤP NHÁY: Dùng id() của đối tượng map làm một phần của key ---
+    map_key = f"single_map_display_{id(st.session_state.single_map)}"
+    st_folium(st.session_state.single_map, width=1300, height=500, key=map_key)
+    # ------------------------------------------------------------------------
 elif st.session_state.single_map is not None and st.session_state.single_result is None:
      # Trường hợp map tồn tại nhưng kết quả bị xóa (ví dụ: lỗi nhập sai sau khi có kết quả)
      pass
 
 
 st.markdown("---")
-st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.3 (State Management Fix)")
+st.write("Ứng dụng dự đoán vị trí nguồn phát xạ v1.4 (Map Flicker Fix)")
