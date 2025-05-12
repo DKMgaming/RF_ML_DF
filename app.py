@@ -2,13 +2,18 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor, StackingRegressor
+from sklearn.model_selection import train_test_split, RandomizedSearchCV  # Thêm dòng này
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 from io import BytesIO
 from math import atan2, degrees, radians, sin, cos, sqrt
 import folium
 from streamlit_folium import st_folium
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
 
 # --- Hàm phụ ---
 def calculate_azimuth(lat1, lon1, lat2, lon2):
