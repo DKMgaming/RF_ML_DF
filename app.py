@@ -64,6 +64,25 @@ def triangulation(lat1, lon1, az1, lat2, lon2, az2):
     
     return lat3, lon3
 
+# --- Chuyển đổi dBm sang dBµV/m ---
+def dBm_to_dBµV_m(dBm):
+    return dBm + 120  # Công thức chuyển đổi từ dBm sang dBµV/m
+
+def simulate_signal_strength(dist_km, h, freq_mhz):
+    # Kiểm tra giá trị đầu vào của các tham số để tránh lỗi
+    if dist_km <= 0 or h <= 0 or freq_mhz <= 0:
+        raise ValueError("Các tham số dist_km, h và freq_mhz phải lớn hơn 0.")
+    
+    # Công thức tính tín hiệu với đơn vị dBm (sau khi chuyển đổi, chúng ta sẽ sử dụng dBµV/m)
+    path_loss = 32.45 + 20 * np.log10(dist_km + 0.1) + 20 * np.log10(freq_mhz + 1)
+    signal_dBm = -30 - path_loss + 10 * np.log10(h + 1)
+    
+    # Chuyển đổi tín hiệu từ dBm sang dBµV/m
+    signal_dBµV_m = dBm_to_dBµV_m(signal_dBm)
+    
+    return signal_dBµV_m
+
+
 # --- Giao diện ---
 st.set_page_config(layout="wide")
 st.title("🔭 Dự đoán tọa độ nguồn phát xạ theo hướng định vị")
