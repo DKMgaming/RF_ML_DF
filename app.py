@@ -89,7 +89,7 @@ with tab1:
                 lon_tx = np.random.uniform(105.0, 109.0)
                 lat_rx = lat_tx + np.random.uniform(-0.05, 0.05)
                 lon_rx = lon_tx + np.random.uniform(-0.05, 0.05)
-                h_rx = np.random.uniform(2, 100)
+                h_rx = np.random.uniform(5, 100)
                 freq = np.random.uniform(30, 2600)
 
                 azimuth = calculate_azimuth(lat_rx, lon_rx, lat_tx, lon_tx)
