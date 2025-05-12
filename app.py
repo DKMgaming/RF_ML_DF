@@ -82,6 +82,30 @@ def simulate_signal_strength(dist_km, h, freq_mhz):
     
     return signal_dBµV_m
 
+def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
+    # Kiểm tra xem khoảng cách có hợp lệ không
+    if distance_km <= 0:
+        raise ValueError("Khoảng cách phải lớn hơn 0.")
+    
+    # Kiểm tra các giá trị lat1, lon1, azimuth_deg có hợp lệ không
+    if not (-90 <= lat1 <= 90) or not (-180 <= lon1 <= 180):
+        raise ValueError("Vị trí tọa độ không hợp lệ.")
+    
+    R = 6371.0  # Bán kính Trái Đất (km)
+    brng = radians(azimuth_deg)  # Chuyển đổi góc phương vị sang radian
+    lat1 = radians(lat1)
+    lon1 = radians(lon1)
+    
+    # Tính toán vị trí đích
+    lat2 = np.arcsin(sin(lat1) * cos(distance_km / R) + cos(lat1) * sin(distance_km / R) * cos(brng))
+    lon2 = lon1 + atan2(sin(brng) * sin(distance_km / R) * cos(lat1), cos(distance_km / R) - sin(lat1) * sin(lat2))
+
+    # Chuyển tọa độ trở lại độ
+    lat2 = degrees(lat2)
+    lon2 = degrees(lon2)
+    
+    return lat2, lon2  # Trả về tọa độ điểm đích (lat2, lon2)
+
 
 # --- Giao diện ---
 st.set_page_config(layout="wide")
