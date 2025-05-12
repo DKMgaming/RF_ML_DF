@@ -222,10 +222,10 @@ with tab2:
 
         else:
             with st.form("input_form"):
-                lat_rx = st.number_input("Vĩ độ trạm thu", value=16.0)
-                lon_rx = st.number_input("Kinh độ trạm thu", value=108.0)
+                lat_rx = st.number_input("Vĩ độ trạm thu", value=21.339)
+                lon_rx = st.number_input("Kinh độ trạm thu", value=105.4056)
                 h_rx = st.number_input("Chiều cao anten (m)", value=30.0)
-                signal = st.number_input("Mức tín hiệu thu (dBµV/m)", value=-80.0)  # Đơn vị dBµV/m
+                signal = st.number_input("Mức tín hiệu thu (dBµV/m)", value=50.0)  # Đơn vị dBµV/m
                 freq = st.number_input("Tần số (MHz)", value=900.0)
                 azimuth = st.number_input("Góc phương vị (độ)", value=45.0)
                 submitted = st.form_submit_button("🔍 Dự đoán tọa độ nguồn phát")
