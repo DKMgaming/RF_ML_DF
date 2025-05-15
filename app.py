@@ -384,7 +384,7 @@ with tab2:
                         st.write(f"Tọa độ nguồn phát tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
             with st.container():
                 st_folium(m, width=700, height=500, returned_objects=[])
-            #st_folium(m, width=800, height=500)
+            #st_folium(m, width=1300, height=500)
         else:
             with st.form("input_form"):
                 lat_rx = st.number_input("Vĩ độ trạm thu", value=21.339)
@@ -419,4 +419,4 @@ with tab2:
                 folium.PolyLine(locations=[[lat_rx, lon_rx], [lat_pred, lon_pred]], color='green').add_to(m)
 
                 with st.container():
-                    st_folium(m, width=700, height=500, returned_objects=[])
+                    st_folium(m, width=1300, height=500, returned_objects=[])
