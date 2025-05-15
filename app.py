@@ -302,7 +302,7 @@ with tab2:
                 })
 
             # Tính toán điểm giao cắt nếu có tần số trùng
-            if st.button("Tính điểm giao cắt"):
+            if st.button("Tính điểm giao cắt nếu 1 tần số được thu bởi 2 trạm"):
                     frequency_groups = df_input.groupby('frequency')
                     
                     # Kiểm tra xem có ít nhất 2 trạm thu cùng tần số
