@@ -308,7 +308,7 @@ with tab2:
                     # Kiểm tra xem có ít nhất 2 trạm thu cùng tần số
                     for freq, group in frequency_groups:
                         if len(group) >= 2:
-                            st.write(f"Đang tính điểm giao cắt cho tần số {freq} MHz...")
+                            #st.write(f"Đang tính điểm giao cắt cho tần số {freq} MHz...")
                             for i in range(len(group)):
                                 for j in range(i + 1, len(group)):
                                     row1 = group.iloc[i]
