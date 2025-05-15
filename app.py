@@ -137,15 +137,7 @@ def find_intersection(lat1, lon1, az1, lat2, lon2, az2):
     
     return lat_intersection, lon_intersection
 
-# --- Hàm tính giao điểm của hai tia với các điều kiện ---
-def calculate_intersection(lat1, lon1, az1, lat2, lon2, az2):
-    # Tính giao điểm
-    intersection_lat, intersection_lon = find_intersection(lat1, lon1, az1, lat2, lon2, az2)
-    
-    if intersection_lat is not None and intersection_lon is not None:
-        return intersection_lat, intersection_lon
-    else:
-        return None  # Không có giao điểm (hai tia song song hoặc không giao nhau)
+
 
 # --- Giao diện ---
 st.set_page_config(layout="wide")
