@@ -402,7 +402,7 @@ with tab2:
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
 
-                lat_pred, lon_pred = compute_intersection_from_azimuths(lat_rx, lon_rx, azimuth, predicted_distance)
+                lat_pred, lon_pred = calculate_destination(lat_rx, lon_rx, azimuth, predicted_distance)
 
                 st.success("🎯 Tọa độ nguồn phát xạ dự đoán:")
                 st.markdown(f"- **Vĩ độ**: `{lat_pred:.6f}`")
