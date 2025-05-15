@@ -325,6 +325,7 @@ with tab2:
                     # Hiển thị điểm giao cắt trên bản đồ
                     for lat, lon in st.session_state['intersection_points']:
                         folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
+                        st.write(f"Tọa độ điểm giao cắt cho tần số {freq} MHz là {lat.6f},{lon.6f}...")
 
             st.dataframe(pd.DataFrame(results))
             #st_folium(m, width=800, height=500)
