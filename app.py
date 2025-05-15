@@ -329,7 +329,7 @@ with tab2:
                         st_folium(m2, width=800, height=500)
 
             st.dataframe(pd.DataFrame(results))
-            #st_folium(m, width=800, height=500)
+            st_folium(m, width=800, height=500)
 
         else:
             with st.form("input_form"):
