@@ -148,6 +148,37 @@ def calculate_intersection(lat1, lon1, az1, lat2, lon2, az2):
         return intersection_lat, intersection_lon
     except np.linalg.LinAlgError:
         return None  # 2 tia song song hoặc gần song song
+def azimuth_to_vector(azimuth_deg):
+    """
+    Chuyển góc phương vị (độ) thành vector hướng (dx, dy) trong tọa độ phẳng
+    0 độ là Bắc, 90 là Đông, 180 là Nam, 270 là Tây
+    """
+    azimuth_rad = np.deg2rad(azimuth_deg)
+    dx = np.sin(azimuth_rad)
+    dy = np.cos(azimuth_rad)
+    return dx, dy
+
+def compute_intersection_from_azimuths(lat1, lon1, az1, lat2, lon2, az2):
+    """
+    Tính điểm giao giữa 2 tia từ trạm thu 1 và 2, theo góc phương vị az1 và az2
+    """
+    x1, y1 = lon1, lat1
+    dx1, dy1 = azimuth_to_vector(az1)
+
+    x2, y2 = lon2, lat2
+    dx2, dy2 = azimuth_to_vector(az2)
+
+    A = np.array([[dx1, -dx2],
+                  [dy1, -dy2]])
+    b = np.array([x2 - x1, y2 - y1])
+
+    try:
+        t, s = np.linalg.solve(A, b)
+        x_int = x1 + t * dx1
+        y_int = y1 + t * dy1
+        return y_int, x_int  # lat, lon
+    except np.linalg.LinAlgError:
+        return None  # Hai tia song song hoặc không xác định giao điểm
 
 # --- Giao diện ---
 st.set_page_config(layout="wide")
@@ -371,7 +402,7 @@ with tab2:
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
 
-                lat_pred, lon_pred = calculate_destination(lat_rx, lon_rx, azimuth, predicted_distance)
+                lat_pred, lon_pred = compute_intersection_from_azimuths(lat_rx, lon_rx, azimuth, predicted_distance)
 
                 st.success("🎯 Tọa độ nguồn phát xạ dự đoán:")
                 st.markdown(f"- **Vĩ độ**: `{lat_pred:.6f}`")
