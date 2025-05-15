@@ -373,7 +373,7 @@ with tab2:
                                     azimuth2 = row2['azimuth']
                                     lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
                                     lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
-                                    intersection_lat, intersection_lon = calculate_intersection(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
+                                    intersection_lat, intersection_lon = compute_intersection_from_azimuths(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
                                     
                                     # Lưu điểm giao cắt vào session_state
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
