@@ -269,6 +269,7 @@ with tab2:
         if uploaded_excel:
             df_input = pd.read_excel(uploaded_excel)
             results = []
+            st.session_state['intersection_points'] = []
             m = folium.Map(location=[df_input['lat_receiver'].mean(), df_input['lon_receiver'].mean()], zoom_start=8)
 
             for _, row in df_input.iterrows():
