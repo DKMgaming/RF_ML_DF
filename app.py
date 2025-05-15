@@ -305,7 +305,7 @@ with tab2:
                         
 
             st.dataframe(pd.DataFrame(results))
-            st_folium(m, width=800, height=500)
+            
             # Tính toán điểm giao cắt nếu có tần số trùng
             if st.button("Tính điểm giao cắt nếu 1 tần số được thu từ 2 trạm"):
                     frequency_groups = df_input.groupby('frequency')
@@ -331,6 +331,7 @@ with tab2:
                     for lat, lon in st.session_state['intersection_points']:
                         folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
                         st.write(f"Tọa độ điểm giao cắt cho tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
+                        st_folium(m, width=800, height=500)
         else:
             with st.form("input_form"):
                 lat_rx = st.number_input("Vĩ độ trạm thu", value=21.339)
