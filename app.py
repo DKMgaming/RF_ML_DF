@@ -331,9 +331,9 @@ with tab2:
                     for lat, lon in st.session_state['intersection_points']:
                         folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
                         st.write(f"Tọa độ điểm giao cắt cho tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
-            with st.container():
-                st_folium(m, width=700, height=500, returned_objects=[])
-                        #st_folium(m, width=800, height=500)
+                        with st.container():
+                        st_folium(m, width=700, height=500, returned_objects=[])
+            st_folium(m, width=800, height=500)
         else:
             with st.form("input_form"):
                 lat_rx = st.number_input("Vĩ độ trạm thu", value=21.339)
