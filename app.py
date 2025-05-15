@@ -374,14 +374,14 @@ with tab2:
                                     lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
                                     lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
                                     intersection_lat, intersection_lon = compute_intersection_from_azimuths(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
-                                    
+                                    folium.Marker([intersection_lat, intersection_lon], tooltip=f"Tọa độ nguồn phát tần số {freq} MHz là {intersection_lat:.4f},{intersection_lon:.4f}", icon=folium.Icon(color='green')).add_to(m)
                                     # Lưu điểm giao cắt vào session_state
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
 
                     # Hiển thị điểm giao cắt trên bản đồ
                     for lat, lon in st.session_state['intersection_points']:
-                        folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
-                        st.write(f"Tọa độ nguồn phát tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
+                        #folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
+                        #st.write(f"Tọa độ nguồn phát tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
             with st.container():
                 st_folium(m, width=700, height=500, returned_objects=[])
             #st_folium(m, width=1300, height=500)
