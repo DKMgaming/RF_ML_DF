@@ -300,6 +300,31 @@ with tab2:
                     "signal_strength": row['signal_strength']
                 })
 
+            # Tính toán điểm giao cắt nếu có tần số trùng
+            if st.button("Tính điểm giao cắt"):
+                    frequency_groups = df_input.groupby('frequency')
+
+                    # Kiểm tra xem có ít nhất 2 trạm thu cùng tần số
+                    for freq, group in frequency_groups:
+                        if len(group) >= 2:
+                            st.write(f"Đang tính điểm giao cắt cho tần số {freq} MHz...")
+                            for i in range(len(group)):
+                                for j in range(i + 1, len(group)):
+                                    row1 = group.iloc[i]
+                                    row2 = group.iloc[j]
+                                    azimuth1 = row1['azimuth']
+                                    azimuth2 = row2['azimuth']
+                                    lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
+                                    lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
+                                    intersection_lat, intersection_lon = find_intersection(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
+                                    
+                                    # Lưu điểm giao cắt vào session_state
+                                    st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
+
+                    # Hiển thị điểm giao cắt trên bản đồ
+                    for lat, lon in st.session_state['intersection_points']:
+                        folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
+
             st.dataframe(pd.DataFrame(results))
             st_folium(m, width=800, height=500)
 
