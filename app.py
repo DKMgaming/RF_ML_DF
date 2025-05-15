@@ -327,7 +327,7 @@ with tab2:
                         folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
 
             st.dataframe(pd.DataFrame(results))
-            st_folium(m, width=800, height=500)
+            #st_folium(m, width=800, height=500)
 
         else:
             with st.form("input_form"):
