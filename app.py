@@ -379,7 +379,7 @@ with tab2:
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
 
                     # Hiển thị điểm giao cắt trên bản đồ
-                    for lat, lon in st.session_state['intersection_points']:
+                    #for lat, lon in st.session_state['intersection_points']:
                         #folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
                         #st.write(f"Tọa độ nguồn phát tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
             with st.container():
