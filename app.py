@@ -106,28 +106,46 @@ def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
     
     return lat2, lon2  # Trả về tọa độ điểm đích (lat2, lon2)
 def find_intersection(lat1, lon1, az1, lat2, lon2, az2):
-    # Tính toán tọa độ giao điểm giữa 2 tia từ 2 trạm thu
-    az1 = radians(az1)
-    az2 = radians(az2)
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    # Chuyển đổi góc phương vị và tọa độ sang radian
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    az1, az2 = np.radians([az1, az2])
     
-    # Tính khoảng cách giữa 2 trạm thu
-    distance = calculate_distance(lat1, lon1, lat2, lon2)
+    # Tính toán các vector hướng từ trạm thu đến nguồn phát
+    vector1 = np.array([np.cos(lat1) * np.cos(lon1), np.cos(lat1) * np.sin(lon1), np.sin(lat1)])
+    vector2 = np.array([np.cos(lat2) * np.cos(lon2), np.cos(lat2) * np.sin(lon2), np.sin(lat2)])
+
+    # Tính toán các vector phương vị từ mỗi trạm thu
+    direction1 = np.array([np.cos(az1), np.sin(az1), 0])
+    direction2 = np.array([np.cos(az2), np.sin(az2), 0])
     
-    # Công thức tính toán điểm giao nhau giữa 2 tia
-    x = (sin(az1) - sin(az2)) * distance / (cos(az1) - cos(az2))
-    y = (sin(az2) * cos(az1) - cos(az2) * sin(az1)) * distance / (cos(az1) - cos(az2))
-
-    # Tính toán vị trí giao điểm
-    lat3 = lat1 + y / 6371.0  # Độ vĩ độ của giao điểm
-    lon3 = lon1 + x / (6371.0 * cos(lat1))  # Độ kinh độ của giao điểm
-
+    # Tính toán giao điểm giữa hai tia (intersecting point)
+    cross_product = np.cross(vector1, vector2)
+    
+    if np.linalg.norm(cross_product) == 0:
+        return None  # Hai tia song song, không có giao điểm
+    
+    # Giao điểm 3D của hai vectơ
+    intersection = np.cross(cross_product, np.cross(direction1, direction2))
+    
+    # Chuyển kết quả về tọa độ trên mặt cầu
+    lat_intersection = np.arcsin(intersection[2] / np.linalg.norm(intersection))
+    lon_intersection = np.arctan2(intersection[1], intersection[0])
+    
     # Chuyển tọa độ trở lại độ
-    lat3 = degrees(lat3)
-    lon3 = degrees(lon3)
+    lat_intersection = np.degrees(lat_intersection)
+    lon_intersection = np.degrees(lon_intersection)
+    
+    return lat_intersection, lon_intersection
 
-    return lat3, lon3
-
+# --- Hàm tính giao điểm của hai tia với các điều kiện ---
+def calculate_intersection(lat1, lon1, az1, lat2, lon2, az2):
+    # Tính giao điểm
+    intersection_lat, intersection_lon = find_intersection(lat1, lon1, az1, lat2, lon2, az2)
+    
+    if intersection_lat is not None and intersection_lon is not None:
+        return intersection_lat, intersection_lon
+    else:
+        return None  # Không có giao điểm (hai tia song song hoặc không giao nhau)
 
 # --- Giao diện ---
 st.set_page_config(layout="wide")
