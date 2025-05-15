@@ -106,7 +106,7 @@ def calculate_destination(lat1, lon1, azimuth_deg, distance_km):
     
     return lat2, lon2  # Trả về tọa độ điểm đích (lat2, lon2)
 def find_intersection(lat1, lon1, az1, lat2, lon2, az2):
-    # Tính toán tọa độ giao điểm giữa 2 tia từ 2 trạm thu
+    # Chuyển đổi góc phương vị và tọa độ sang radian
     az1 = radians(az1)
     az2 = radians(az2)
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
@@ -127,7 +127,6 @@ def find_intersection(lat1, lon1, az1, lat2, lon2, az2):
     lon3 = degrees(lon3)
 
     return lat3, lon3
-
 
 
 # --- Giao diện ---
