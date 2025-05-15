@@ -128,6 +128,27 @@ def find_intersection(lat1, lon1, az1, lat2, lon2, az2):
 
     return lat3, lon3
 
+def calculate_intersection(lat1, lon1, az1, lat2, lon2, az2):
+    # Chuyển độ sang radian
+    theta1 = np.deg2rad(az1)
+    theta2 = np.deg2rad(az2)
+
+    # Vector hướng
+    dx1, dy1 = np.sin(theta1), np.cos(theta1)
+    dx2, dy2 = np.sin(theta2), np.cos(theta2)
+
+    # Dựng ma trận hệ phương trình
+    A = np.array([[dx1, -dx2], [dy1, -dy2]])
+    b = np.array([lat2 - lat1, lon2 - lon1])  # chú ý: lat là y, lon là x
+
+    try:
+        t = np.linalg.solve(A, b)
+        intersection_lat = lat1 + t[0] * dy1
+        intersection_lon = lon1 + t[0] * dx1
+        return intersection_lat, intersection_lon
+    except np.linalg.LinAlgError:
+        return None  # 2 tia song song hoặc gần song song
+
 # --- Giao diện ---
 st.set_page_config(layout="wide")
 st.title("🔭 Dự đoán tọa độ nguồn phát xạ theo hướng định vị")
@@ -321,7 +342,7 @@ with tab2:
                                     azimuth2 = row2['azimuth']
                                     lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
                                     lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
-                                    intersection_lat, intersection_lon = find_intersection(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
+                                    intersection_lat, intersection_lon = calculate_intersection(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
                                     
                                     # Lưu điểm giao cắt vào session_state
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
