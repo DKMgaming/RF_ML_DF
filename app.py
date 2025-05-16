@@ -375,6 +375,7 @@ with tab2:
                                     lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
                                     intersection_lat, intersection_lon = compute_intersection_from_azimuths(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
                                     folium.Marker([intersection_lat, intersection_lon], tooltip=f"Tọa độ nguồn phát tần số {freq} MHz là {intersection_lat:.4f},{intersection_lon:.4f}", icon=folium.Icon(color='green')).add_to(m)
+                                    st.write(f"Tọa độ điểm giao cắt cho tần số {freq} MHz là: {intersection_lat:.4f} / {intersection_lon:.4f}")
                                     # Lưu điểm giao cắt vào session_state
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
 
