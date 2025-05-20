@@ -313,11 +313,27 @@ with tab1:
 with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
 
-    uploaded_model = st.file_uploader("📂 Tải mô hình đã huấn luyện (.joblib)", type=["joblib"])
-    if uploaded_model:
-        with open("distance_model.joblib", "rb") as f:
-            model = joblib.load(f)
-        model = joblib.load(uploaded_model)
+    model = None
+    model_path = "distance_model.joblib"
+
+    # Kiểm tra file có tồn tại trên hệ thống không
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+        st.success("✅ Đã tải mô hình từ file local.")
+    else:
+        uploaded_model = st.file_uploader("📂 Tải mô hình đã huấn luyện (.joblib)", type=["joblib"])
+        if uploaded_model is not None:
+            with open(model_path, "wb") as f:
+                f.write(uploaded_model.read())
+            model = joblib.load(model_path)
+            st.success("✅ Đã tải mô hình từ file được tải lên.")
+        else:
+            st.warning("⚠️ Chưa có mô hình. Vui lòng tải lên file `.joblib`.")
+
+    # Kiểm tra nếu model đã sẵn sàng thì tiếp tục
+    if model is not None:
+        # TODO: Thêm code để nhập dữ liệu và dự đoán
+        st.write("Sẵn sàng dự đoán...")
 
         uploaded_excel = st.file_uploader("📄 Hoặc tải file Excel chứa thông tin các trạm thu", type=["xlsx"])
 
