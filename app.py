@@ -297,8 +297,7 @@ with tab1:
             joblib.dump(best_model, buffer)
             buffer.seek(0)
             
-            with open("distance_model.joblib", "wb") as f:
-            joblib.dump(model, f)
+
             # Cung cấp nút tải mô hình đã huấn luyện
             st.download_button(
                 label="📥 Tải mô hình huấn luyện (.joblib)",
