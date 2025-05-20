@@ -306,7 +306,7 @@ with tab1:
             st.download_button(
                 label="📥 Tải mô hình huấn luyện (.joblib)",
                 data=buffer,
-                file_name="distance_model.joblib",
+                file_name="distance_model_new.joblib",
                 mime="application/octet-stream"
             )
         except Exception as e:
