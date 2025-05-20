@@ -316,7 +316,7 @@ with tab2:
     uploaded_model = st.file_uploader("📂 Tải mô hình đã huấn luyện (.joblib)", type=["joblib"])
     if uploaded_model:
         with open("distance_model.joblib", "rb") as f:
-        model = joblib.load(f)
+            model = joblib.load(f)
         model = joblib.load(uploaded_model)
 
         uploaded_excel = st.file_uploader("📄 Hoặc tải file Excel chứa thông tin các trạm thu", type=["xlsx"])
