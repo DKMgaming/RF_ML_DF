@@ -292,13 +292,16 @@ with tab1:
             st.success(f"Huấn luyện xong - MAE khoảng cách: {mae:.3f} km")
             st.success(f"RMSE: {rmse:.3f} km")
             st.success(f"R²: {r2:.3f}")
-            
+
+            # ✅ Lưu mô hình vào file gốc (local server)
+            model_path = "distance_model.joblib"
+            joblib.dump(best_model, model_path)
 
             buffer = BytesIO()
             joblib.dump(best_model, buffer)
             buffer.seek(0)
             
-
+      
             # Cung cấp nút tải mô hình đã huấn luyện
             st.download_button(
                 label="📥 Tải mô hình huấn luyện (.joblib)",
