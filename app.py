@@ -294,7 +294,7 @@ with tab1:
             st.success(f"R²: {r2:.3f}")
 
             # ✅ Lưu mô hình vào file gốc (local server)
-            model_path = "distance_model.joblib"
+            model_path = "distance_model_new.joblib"
             joblib.dump(best_model, model_path)
 
             buffer = BytesIO()
@@ -306,7 +306,7 @@ with tab1:
             st.download_button(
                 label="📥 Tải mô hình huấn luyện (.joblib)",
                 data=buffer,
-                file_name="distance_model_new.joblib",
+                file_name="distance_model.joblib",
                 mime="application/octet-stream"
             )
         except Exception as e:
