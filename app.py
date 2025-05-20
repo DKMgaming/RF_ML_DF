@@ -291,11 +291,14 @@ with tab1:
             st.success(f"Huấn luyện xong - MAE khoảng cách: {mae:.3f} km")
             st.success(f"RMSE: {rmse:.3f} km")
             st.success(f"R²: {r2:.3f}")
+            
 
             buffer = BytesIO()
             joblib.dump(best_model, buffer)
             buffer.seek(0)
-
+            
+            with open("distance_model.joblib", "wb") as f:
+            joblib.dump(model, f)
             # Cung cấp nút tải mô hình đã huấn luyện
             st.download_button(
                 label="📥 Tải mô hình huấn luyện (.joblib)",
