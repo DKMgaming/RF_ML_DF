@@ -312,8 +312,7 @@ with tab1:
 # --- Tab 2: Dự đoán ---
 with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
-    with open("distance_model.joblib", "rb") as f:
-    model = joblib.load(f)
+
     uploaded_model = st.file_uploader("📂 Tải mô hình đã huấn luyện (.joblib)", type=["joblib"])
     if uploaded_model:
     with open("distance_model.joblib", "rb") as f:
