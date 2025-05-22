@@ -359,9 +359,7 @@ with tab2:
         else:
             st.warning("⚠️ Chưa có mô hình. Vui lòng tải lên file `.joblib`.")
 
-    # Kiểm tra nếu model đã sẵn sàng thì tiếp tục
     if model is not None:
-        # TODO: Thêm code để nhập dữ liệu và dự đoán
         st.write("Sẵn sàng dự đoán...")
 
         uploaded_excel = st.file_uploader("📄 Hoặc tải file Excel chứa thông tin các trạm thu", type=["xlsx"])
@@ -375,16 +373,24 @@ with tab2:
             for _, row in df_input.iterrows():
                 az_sin = np.sin(np.radians(row['azimuth']))
                 az_cos = np.cos(np.radians(row['azimuth']))
-                X_input = np.array([[row['lat_receiver'], row['lon_receiver'], row['antenna_height'], row['signal_strength'], row['frequency'], az_sin, az_cos]])
+                signal = row['signal_strength']
+                freq = row['frequency']
+
+                # Tạo đủ biến đầu vào cho mô hình
+                inv_signal_strength = 1 / signal if signal != 0 else 0
+                signal_freq_interaction = signal * freq
+
+                X_input = np.array([[row['lat_receiver'], row['lon_receiver'], row['antenna_height'], freq,
+                                     az_sin, az_cos, signal, inv_signal_strength, signal_freq_interaction]])
+
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
 
                 lat_pred, lon_pred = calculate_destination(row['lat_receiver'], row['lon_receiver'], row['azimuth'], predicted_distance)
 
-                # Thêm thông tin về tần số và mức tín hiệu vào tooltip của "Nguồn phát dự đoán"
                 folium.Marker(
                     [lat_pred, lon_pred],
-                    tooltip=f"Nguồn phát dự đoán\nTần số: {row['frequency']} MHz\nMức tín hiệu: {row['signal_strength']} dBµV/m",
+                    tooltip=f"Nguồn phát dự đoán\nTần số: {freq} MHz\nMức tín hiệu: {signal} dBµV/m",
                     icon=folium.Icon(color='red')
                 ).add_to(m)
 
@@ -397,50 +403,45 @@ with tab2:
                     "lat_pred": lat_pred,
                     "lon_pred": lon_pred,
                     "predicted_distance_km": predicted_distance,
-                    "frequency": row['frequency'],
-                    "signal_strength": row['signal_strength']
+                    "frequency": freq,
+                    "signal_strength": signal
                 })
 
-
-                        
-
             st.dataframe(pd.DataFrame(results))
-            
-            # Tính toán điểm giao cắt nếu có tần số trùng
+
             if st.button("Tính điểm giao cắt nếu 1 tần số được thu từ 2 trạm"):
-                    frequency_groups = df_input.groupby('frequency')
-                    
-                    # Kiểm tra xem có ít nhất 2 trạm thu cùng tần số
-                    for freq, group in frequency_groups:
-                        if len(group) >= 2:
-                            #st.write(f"Đang tính điểm giao cắt cho tần số {freq} MHz...")
-                            for i in range(len(group)):
-                                for j in range(i + 1, len(group)):
-                                    row1 = group.iloc[i]
-                                    row2 = group.iloc[j]
-                                    azimuth1 = row1['azimuth']
-                                    azimuth2 = row2['azimuth']
-                                    lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
-                                    lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
-                                    intersection_lat, intersection_lon = compute_intersection_from_azimuths(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
-                                    folium.Marker([intersection_lat, intersection_lon], tooltip=f"Tọa độ nguồn phát tần số {freq} MHz là {intersection_lat:.4f},{intersection_lon:.4f}", icon=folium.Icon(color='green')).add_to(m)
+                frequency_groups = df_input.groupby('frequency')
+                for freq, group in frequency_groups:
+                    if len(group) >= 2:
+                        for i in range(len(group)):
+                            for j in range(i + 1, len(group)):
+                                row1 = group.iloc[i]
+                                row2 = group.iloc[j]
+                                lat1, lon1 = row1['lat_receiver'], row1['lon_receiver']
+                                lat2, lon2 = row2['lat_receiver'], row2['lon_receiver']
+                                azimuth1 = row1['azimuth']
+                                azimuth2 = row2['azimuth']
+
+                                intersection = compute_intersection_from_azimuths(lat1, lon1, azimuth1, lat2, lon2, azimuth2)
+                                if intersection is not None:
+                                    intersection_lat, intersection_lon = intersection
+                                    folium.Marker(
+                                        [intersection_lat, intersection_lon],
+                                        tooltip=f"Tọa độ nguồn phát tần số {freq} MHz: {intersection_lat:.4f}, {intersection_lon:.4f}",
+                                        icon=folium.Icon(color='green')
+                                    ).add_to(m)
                                     st.write(f"Tọa độ điểm giao cắt cho tần số {freq} MHz là: {intersection_lat:.4f} / {intersection_lon:.4f}")
-                                    # Lưu điểm giao cắt vào session_state
                                     st.session_state['intersection_points'].append((intersection_lat, intersection_lon))
 
-                    # Hiển thị điểm giao cắt trên bản đồ
-                    #for lat, lon in st.session_state['intersection_points']:
-                        #folium.Marker([lat, lon], tooltip="Điểm giao cắt", icon=folium.Icon(color='green')).add_to(m)
-                        #st.write(f"Tọa độ nguồn phát tần số {freq} MHz là {lat:.4f},{lon:.4f}...")
             with st.container():
                 st_folium(m, width=1300, height=500, returned_objects=[])
-            #st_folium(m, width=1300, height=500)
+
         else:
             with st.form("input_form"):
                 lat_rx = st.number_input("Vĩ độ trạm thu", value=21.339)
                 lon_rx = st.number_input("Kinh độ trạm thu", value=105.4056)
                 h_rx = st.number_input("Chiều cao anten (m)", value=30.0)
-                signal = st.number_input("Mức tín hiệu thu (dBµV/m)", value=50.0)  # Đơn vị dBµV/m
+                signal = st.number_input("Mức tín hiệu thu (dBµV/m)", value=50.0)
                 freq = st.number_input("Tần số (MHz)", value=900.0)
                 azimuth = st.number_input("Góc phương vị (độ)", value=45.0)
                 submitted = st.form_submit_button("🔍 Dự đoán tọa độ nguồn phát")
@@ -448,7 +449,11 @@ with tab2:
             if submitted:
                 az_sin = np.sin(np.radians(azimuth))
                 az_cos = np.cos(np.radians(azimuth))
-                X_input = np.array([[lat_rx, lon_rx, h_rx, signal, freq, az_sin, az_cos]])
+                inv_signal_strength = 1 / signal if signal != 0 else 0
+                signal_freq_interaction = signal * freq
+
+                X_input = np.array([[lat_rx, lon_rx, h_rx, freq, az_sin, az_cos, signal, inv_signal_strength, signal_freq_interaction]])
+
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
 
@@ -470,3 +475,4 @@ with tab2:
 
                 with st.container():
                     st_folium(m, width=1300, height=500, returned_objects=[])
+
