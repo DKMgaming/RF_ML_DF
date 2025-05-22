@@ -339,14 +339,12 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
 
 
 
-# --- Tab 2: Dự đoán ---
 with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
 
     model = None
     model_path = "distance_model.joblib"
 
-    # Kiểm tra file có tồn tại trên hệ thống không
     if os.path.exists(model_path):
         model = joblib.load(model_path)
         st.success("✅ Đã tải mô hình từ file local.")
@@ -377,12 +375,13 @@ with tab2:
                 signal = row['signal_strength']
                 freq = row['frequency']
 
-                # Tạo đủ biến đầu vào cho mô hình
-                inv_signal_strength = 1 / signal if signal != 0 else 0
+                # Tạo biến log cường độ tín hiệu
+                log_signal_strength = np.log(signal) if signal > 0 else 0
+                # Biến tương tác
                 signal_freq_interaction = signal * freq
 
                 X_input = np.array([[row['lat_receiver'], row['lon_receiver'], row['antenna_height'], freq,
-                                     az_sin, az_cos, signal, inv_signal_strength, signal_freq_interaction]])
+                                     az_sin, az_cos, log_signal_strength, signal_freq_interaction]])
 
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
@@ -450,10 +449,10 @@ with tab2:
             if submitted:
                 az_sin = np.sin(np.radians(azimuth))
                 az_cos = np.cos(np.radians(azimuth))
-                inv_signal_strength = 1 / signal if signal != 0 else 0
+                log_signal_strength = np.log(signal) if signal > 0 else 0
                 signal_freq_interaction = signal * freq
 
-                X_input = np.array([[lat_rx, lon_rx, h_rx, freq, az_sin, az_cos, signal, inv_signal_strength, signal_freq_interaction]])
+                X_input = np.array([[lat_rx, lon_rx, h_rx, freq, az_sin, az_cos, log_signal_strength, signal_freq_interaction]])
 
                 predicted_distance = model.predict(X_input)[0]
                 predicted_distance = max(predicted_distance, 0.1)
@@ -476,4 +475,3 @@ with tab2:
 
                 with st.container():
                     st_folium(m, width=1300, height=500, returned_objects=[])
-
