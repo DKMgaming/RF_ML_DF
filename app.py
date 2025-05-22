@@ -318,7 +318,7 @@ with tab2:
     st.subheader("📍 Dự đoán tọa độ nguồn phát xạ")
 
     model = None
-    model_path = "distance_model.joblib"
+    model_path = "distance_model_2.joblib"
 
     # Kiểm tra file có tồn tại trên hệ thống không
     if os.path.exists(model_path):
