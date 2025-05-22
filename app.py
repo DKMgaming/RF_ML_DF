@@ -248,70 +248,95 @@ with tab1:
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
 
-    if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
-        try:
-            st.info("Đang huấn luyện mô hình...")
+ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
+    try:
+        st.info("Đang xử lý dữ liệu và huấn luyện mô hình...")
 
-            # Xử lý thêm dữ liệu
-            df['azimuth_sin'] = np.sin(np.radians(df['azimuth']))
-            df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
+        # Loại bỏ các mẫu có giá trị không hợp lệ
+        df = df[(df['signal_strength'] > 0) & (df['distance_km'] > 0)]
 
-            X = df[['lat_receiver', 'lon_receiver', 'antenna_height', 'signal_strength', 'frequency', 'azimuth_sin', 'azimuth_cos']]
-            y = df[['distance_km']]
+        # Tạo biến nghịch đảo cường độ tín hiệu (để mô hình dễ học quan hệ nghịch đảo)
+        df['inv_signal_strength'] = 1 / df['signal_strength']
 
-            # Chia dữ liệu thành tập huấn luyện và kiểm tra
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # Tạo biến tương tác giữa cường độ tín hiệu và tần số
+        df['signal_freq_interaction'] = df['signal_strength'] * df['frequency']
 
-            # --- Tuning tham số với RandomizedSearchCV ---
-            param_dist = {
-                'n_estimators': [100, 200, 300],  # Giảm số lượng giá trị tham số để thử
-                'max_depth': [3, 6, 9],  # Giảm số giá trị tham số
-                'learning_rate': [0.05, 0.1],
-                'subsample': [0.7, 0.8],
-                'colsample_bytree': [0.7, 0.8]
-            }
+        # Tính sin và cos của azimuth
+        df['azimuth_sin'] = np.sin(np.radians(df['azimuth']))
+        df['azimuth_cos'] = np.cos(np.radians(df['azimuth']))
 
-            model = XGBRegressor(random_state=42)
+        # Chuẩn bị tập đặc trưng
+        X = df[['lat_receiver', 'lon_receiver', 'antenna_height', 'frequency', 
+                'azimuth_sin', 'azimuth_cos', 'signal_strength', 'inv_signal_strength', 'signal_freq_interaction']]
 
-            # Giảm số vòng lặp để tăng tốc
-            random_search = RandomizedSearchCV(estimator=model, param_distributions=param_dist, n_iter=5, cv=3, random_state=42)
+        y = df['distance_km']
 
-            # Thêm thông báo cho người dùng khi quá trình huấn luyện bắt đầu
-            st.info("Đang thực hiện RandomizedSearchCV để tìm tham số tối ưu...")
+        # Loại bỏ giá trị ngoại lai bằng cách dùng IQR (Interquartile Range)
+        Q1 = y.quantile(0.25)
+        Q3 = y.quantile(0.75)
+        IQR = Q3 - Q1
+        filter_condition = (y >= (Q1 - 1.5 * IQR)) & (y <= (Q3 + 1.5 * IQR))
+        X = X[filter_condition]
+        y = y[filter_condition]
 
-            random_search.fit(X_train, y_train.values.ravel())
+        # Chia dữ liệu
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-            best_model = random_search.best_estimator_
+        # Mở rộng không gian tham số cho RandomizedSearchCV
+        param_dist = {
+            'n_estimators': [200, 300, 400, 500],
+            'max_depth': [6, 8, 10, 12],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'subsample': [0.6, 0.7, 0.8, 0.9],
+            'colsample_bytree': [0.6, 0.7, 0.8, 0.9],
+            'reg_alpha': [0, 0.1, 0.5],
+            'reg_lambda': [1, 1.5, 2]
+        }
 
-            # Đánh giá mô hình
-            y_pred = best_model.predict(X_test)
-            mae = mean_absolute_error(y_test, y_pred)
-            rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-            r2 = r2_score(y_test, y_pred)
+        model = XGBRegressor(random_state=42)
 
-            st.success(f"Huấn luyện xong - MAE khoảng cách: {mae:.3f} km")
-            st.success(f"RMSE: {rmse:.3f} km")
-            st.success(f"R²: {r2:.3f}")
+        random_search = RandomizedSearchCV(
+            estimator=model,
+            param_distributions=param_dist,
+            n_iter=20,   # Tăng số vòng lặp thử
+            cv=5,        # Tăng số folds cross-validation
+            random_state=42,
+            verbose=1,
+            n_jobs=-1
+        )
 
-            # ✅ Lưu mô hình vào file gốc (local server)
-            model_path = "distance_model_new.joblib"
-            joblib.dump(best_model, model_path)
+        random_search.fit(X_train, y_train)
 
-            buffer = BytesIO()
-            joblib.dump(best_model, buffer)
-            buffer.seek(0)
-            
-      
-            # Cung cấp nút tải mô hình đã huấn luyện
-            st.download_button(
-                label="📥 Tải mô hình huấn luyện (.joblib)",
-                data=buffer,
-                file_name="distance_model.joblib",
-                mime="application/octet-stream"
-            )
-        except Exception as e:
-            st.error(f"Đã xảy ra lỗi trong quá trình huấn luyện: {e}")
-            st.exception(e)
+        best_model = random_search.best_estimator_
+
+        # Đánh giá mô hình
+        y_pred = best_model.predict(X_test)
+        mae = mean_absolute_error(y_test, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+        r2 = r2_score(y_test, y_pred)
+
+        st.success(f"Huấn luyện xong - MAE khoảng cách: {mae:.3f} km")
+        st.success(f"RMSE: {rmse:.3f} km")
+        st.success(f"R²: {r2:.3f}")
+
+        # Lưu mô hình
+        model_path = "distance_model_new.joblib"
+        joblib.dump(best_model, model_path)
+
+        buffer = BytesIO()
+        joblib.dump(best_model, buffer)
+        buffer.seek(0)
+
+        st.download_button(
+            label="📥 Tải mô hình huấn luyện (.joblib)",
+            data=buffer,
+            file_name="distance_model.joblib",
+            mime="application/octet-stream"
+        )
+    except Exception as e:
+        st.error(f"Đã xảy ra lỗi trong quá trình huấn luyện: {e}")
+        st.exception(e)
+
 
 # --- Tab 2: Dự đoán ---
 with tab2:
