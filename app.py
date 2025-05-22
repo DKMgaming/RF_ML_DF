@@ -248,7 +248,7 @@ with tab1:
         else:
             st.info("Vui lòng tải file dữ liệu để huấn luyện.")
 
- if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
+if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
     try:
         st.info("Đang xử lý dữ liệu và huấn luyện mô hình...")
 
