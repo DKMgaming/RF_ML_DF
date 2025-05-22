@@ -252,13 +252,13 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
     try:
         st.info("Đang xử lý dữ liệu và huấn luyện mô hình...")
 
-        # Loại bỏ các mẫu có giá trị không hợp lệ
+        # Loại bỏ các mẫu không hợp lệ
         df = df[(df['signal_strength'] > 0) & (df['distance_km'] > 0)]
 
-        # Tạo biến nghịch đảo cường độ tín hiệu (để mô hình dễ học quan hệ nghịch đảo)
-        df['inv_signal_strength'] = 1 / df['signal_strength']
+        # Tạo biến log cường độ tín hiệu
+        df['log_signal_strength'] = np.log(df['signal_strength'])
 
-        # Tạo biến tương tác giữa cường độ tín hiệu và tần số
+        # Tạo biến tương tác (nếu muốn, có thể bỏ dòng này)
         df['signal_freq_interaction'] = df['signal_strength'] * df['frequency']
 
         # Tính sin và cos của azimuth
@@ -267,11 +267,11 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
 
         # Chuẩn bị tập đặc trưng
         X = df[['lat_receiver', 'lon_receiver', 'antenna_height', 'frequency', 
-                'azimuth_sin', 'azimuth_cos', 'signal_strength', 'inv_signal_strength', 'signal_freq_interaction']]
+                'azimuth_sin', 'azimuth_cos', 'log_signal_strength', 'signal_freq_interaction']]
 
         y = df['distance_km']
 
-        # Loại bỏ giá trị ngoại lai bằng cách dùng IQR (Interquartile Range)
+        # Loại bỏ ngoại lệ theo IQR
         Q1 = y.quantile(0.25)
         Q3 = y.quantile(0.75)
         IQR = Q3 - Q1
@@ -282,7 +282,7 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
         # Chia dữ liệu
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # Mở rộng không gian tham số cho RandomizedSearchCV
+        # Tuning tham số
         param_dist = {
             'n_estimators': [200, 300, 400, 500],
             'max_depth': [6, 8, 10, 12],
@@ -298,8 +298,8 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
         random_search = RandomizedSearchCV(
             estimator=model,
             param_distributions=param_dist,
-            n_iter=20,   # Tăng số vòng lặp thử
-            cv=5,        # Tăng số folds cross-validation
+            n_iter=20,
+            cv=5,
             random_state=42,
             verbose=1,
             n_jobs=-1
@@ -336,6 +336,7 @@ if df is not None and st.button("🔧 Tiến hành huấn luyện mô hình"):
     except Exception as e:
         st.error(f"Đã xảy ra lỗi trong quá trình huấn luyện: {e}")
         st.exception(e)
+
 
 
 # --- Tab 2: Dự đoán ---
