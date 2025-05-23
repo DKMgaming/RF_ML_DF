@@ -75,8 +75,8 @@ def simulate_signal_strength(dist_km, h, freq_mhz):
         raise ValueError("Các tham số dist_km, h và freq_mhz phải lớn hơn 0.")
     
     # Công thức tính tín hiệu với đơn vị dBm (sau khi chuyển đổi, chúng ta sẽ sử dụng dBµV/m)
-    path_loss = 32.45 + 20 * np.log10(dist_km + 0.1) + 20 * np.log10(freq_mhz + 1)
-    signal_dBm = -30 - path_loss + 10 * np.log10(h + 1)
+    path_loss = 32.45 + 20 * np.log10(dist_km) + 20 * np.log10(freq_mhz)
+    signal_dBm = -30 - path_loss + 10 * np.log10(h)
     
     # Chuyển đổi tín hiệu từ dBm sang dBµV/m
     signal_dBµV_m = dBm_to_dBµV_m(signal_dBm)
