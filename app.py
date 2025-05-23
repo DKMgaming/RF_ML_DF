@@ -199,7 +199,7 @@ with tab1:
         if st.button("Huấn luyện mô hình từ dữ liệu mô phỏng"):
             st.info("Đang sinh dữ liệu mô phỏng...")
             np.random.seed(42)
-            n_samples = 1000  # Tạo 1000 mẫu dữ liệu mô phỏng
+            n_samples = 3000  # Tạo 1000 mẫu dữ liệu mô phỏng
             data = []
             for _ in range(n_samples):
                 lat_tx = np.random.uniform(10.0, 21.0)
